@@ -1,0 +1,11 @@
+services:
+  mockzoho:
+    build: .
+    ports:
+      - "8091:8090"
+    environment:
+      - MOCKZOHO_TOKEN_TTL_SECONDS=3600
+      - MOCKZOHO_RATE_LIMIT_CREDITS=5000
+    volumes:
+      - ./seeds:/app/seeds:ro
+    restart: unless-stopped

@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Zoho OAuth 2.0 & Token Lifecycle</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/theme/white.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/highlight/monokai.css">
+<style>
+  :root {
+    --zoho-red: #e42527;
+    --zoho-dark: #2c2c2c;
+    --zoho-light: #f8f8f8;
+    --zoho-blue: #2d7ff9;
+    --zoho-green: #2e9e4f;
+    --zoho-orange: #f5a623;
+  }
+  .reveal { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; }
+  .reveal .slides section {
+    font-size: 0.78em; /* ~22% smaller overall — everything below inherits from this via em units */
+    line-height: 1.25;
+    max-height: 700px; /* safety net: matches Reveal's default slide height, scrolls if still too tall */
+    overflow-y: auto;
+  }
+  .reveal .slides section ul,
+  .reveal .slides section ol { margin-top: 0.3em; margin-bottom: 0.3em; }
+  .reveal .slides section li { margin-top: 0.25em; }
+  .reveal .slides section h1,
+  .reveal .slides section h2,
+  .reveal .slides section h3 { margin: 0.2em 0 0.35em 0; }
+  .reveal .slides section blockquote { margin: 0.4em 0; }
+  .reveal h1, .reveal h2, .reveal h3 { color: var(--zoho-dark); text-transform: none; }
+  .reveal h1 { font-size: 1.8em; }
+  .reveal h2 { font-size: 1.4em; }
+  .reveal h3 { font-size: 1.1em; }
+  .reveal section { text-align: left; }
+  .reveal pre { font-size: 0.55em; width: 100%; }
+  .reveal pre code { padding: 0.5em; }
+  .reveal code { color: var(--zoho-red); }
+  .reveal .slide-title { color: var(--zoho-red); }
+  .reveal blockquote { background: var(--zoho-light); border-left: 4px solid var(--zoho-red); padding: 0.5em 1em; font-style: normal; font-size: 0.8em; }
+
+  .flow-container { display: flex; flex-direction: column; gap: 12px; align-items: center; font-size: 0.65em; }
+  .flow-row { display: flex; align-items: center; gap: 8px; width: 100%; justify-content: center; }
+  .flow-box { padding: 10px 16px; border-radius: 8px; text-align: center; min-width: 120px; font-weight: 600; }
+  .flow-client { background: #e8f0fe; border: 2px solid var(--zoho-blue); color: var(--zoho-blue); }
+  .flow-zoho { background: #fce8e8; border: 2px solid var(--zoho-red); color: var(--zoho-red); }
+  .flow-user { background: #e8f8ea; border: 2px solid var(--zoho-green); color: var(--zoho-green); }
+  .flow-arrow { font-size: 1.5em; color: #999; }
+  .flow-label { font-size: 0.85em; color: #666; text-align: center; margin-top: -8px; }
+  .flow-step { background: var(--zoho-dark); color: white; border-radius: 50%; width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; font-weight: bold; font-size: 0.9em; }
+
+  #interactive-diagram { font-size: 0.6em; }
+  .diagram-stage { position: relative; width: 100%; min-height: 420px; background: var(--zoho-light); border-radius: 12px; padding: 20px; box-sizing: border-box; }
+  .diagram-node { position: absolute; padding: 12px 20px; border-radius: 8px; font-weight: 600; cursor: pointer; transition: all 0.3s; text-align: center; min-width: 140px; }
+  .diagram-node:hover { transform: scale(1.05); box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+  .diagram-node.active { box-shadow: 0 0 0 3px var(--zoho-orange); }
+  .diagram-node.client { background: #e8f0fe; border: 2px solid var(--zoho-blue); color: var(--zoho-blue); top: 20px; left: 20px; }
+  .diagram-node.auth-server { background: #fce8e8; border: 2px solid var(--zoho-red); color: var(--zoho-red); top: 20px; right: 20px; }
+  .diagram-node.user { background: #e8f8ea; border: 2px solid var(--zoho-green); color: var(--zoho-green); top: 180px; left: 50%; transform: translateX(-50%); }
+  .diagram-node.resource { background: #fff3e0; border: 2px solid var(--zoho-orange); color: var(--zoho-orange); bottom: 20px; right: 20px; }
+  .diagram-node.token-store { background: #f3e8fd; border: 2px solid #8b5cf6; color: #8b5cf6; bottom: 20px; left: 20px; }
+  .diagram-svg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
+  .diagram-detail { margin-top: 15px; padding: 12px; background: white; border-radius: 8px; border: 1px solid #ddd; font-size: 0.9em; min-height: 80px; }
+  .diagram-detail h4 { color: var(--zoho-red); margin: 0 0 8px 0; font-size: 1.1em; }
+  .diagram-detail pre { margin: 0; font-size: 0.85em; background: #f5f5f5; padding: 8px; border-radius: 4px; overflow-x: auto; }
+  .diagram-controls { margin-top: 10px; display: flex; gap: 8px; justify-content: center; }
+  .diagram-btn { padding: 6px 16px; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.9em; transition: all 0.2s; }
+  .diagram-btn-primary { background: var(--zoho-red); color: white; }
+  .diagram-btn-primary:hover { background: #c41e1e; }
+  .diagram-btn-secondary { background: #ddd; color: #333; }
+  .diagram-btn-secondary:hover { background: #ccc; }
+  .diagram-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .lifecycle-bar { display: flex; width: 100%; height: 40px; border-radius: 6px; overflow: hidden; margin: 10px 0; font-size: 0.7em; }
+  .lifecycle-segment { display: flex; align-items: center; justify-content: center; color: white; font-weight: 600; transition: all 0.5s; }
+  .lifecycle-active { background: var(--zoho-green); }
+  .lifecycle-expiring { background: var(--zoho-orange); }
+  .lifecycle-expired { background: #ccc; }
+  .lifecycle-refreshed { background: var(--zoho-blue); }
+
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.75em; font-weight: 600; }
+  .badge-red { background: #fce8e8; color: var(--zoho-red); }
+  .badge-green { background: #e8f8ea; color: var(--zoho-green); }
+  .badge-blue { background: #e8f0fe; color: var(--zoho-blue); }
+  .badge-orange { background: #fff3e0; color: var(--zoho-orange); }
+
+  .endpoint-table { font-size: 0.65em; width: 100%; border-collapse: collapse; }
+  .endpoint-table th { background: var(--zoho-dark); color: white; padding: 6px 10px; text-align: left; }
+  .endpoint-table td { padding: 6px 10px; border-bottom: 1px solid #ddd; }
+  .endpoint-table tr:nth-child(even) { background: var(--zoho-light); }
+  .method-post { color: var(--zoho-green); font-weight: bold; }
+  .method-get { color: var(--zoho-blue); font-weight: bold; }
+
+  .two-col { display: flex; gap: 20px; }
+  .two-col > div { flex: 1; }
+</style>
+</head>
+<body>
+<div class="reveal">
+<div class="slides">
+
+<section>
+  <h1 class="slide-title">Zoho OAuth 2.0 & Token Lifecycle</h1>
+  <p>How authentication works in the Zoho CRM REST API</p>
+  <p style="font-size: 0.7em; color: #999;">Use arrow keys or space to navigate</p>
+</section>
+
+<section>
+  <h2 class="slide-title">What is OAuth 2.0?</h2>
+  <ul>
+    <li>Industry-standard protocol for <strong>secure, delegated access</strong></li>
+    <li>Third-party apps access user data <strong>without seeing passwords</strong></li>
+    <li>Users grant scoped permissions &mdash; apps get <strong>time-limited tokens</strong></li>
+    <li>Zoho uses OAuth 2.0 across all its APIs (CRM, Mail, Books, etc.)</li>
+  </ul>
+  <br>
+  <blockquote>"OAuth 2.0 enables third-party applications to access resources without requiring the end user to repeatedly authenticate." &mdash; Zoho Documentation</blockquote>
+</section>
+
+<section>
+  <h2 class="slide-title">Key Terms</h2>
+  <table class="endpoint-table">
+    <tr><th>Term</th><th>Description</th></tr>
+    <tr><td><strong>Client Application</strong></td><td>Your app that wants to access Zoho data</td></tr>
+    <tr><td><strong>End User</strong></td><td>The Zoho account holder who grants permission</td></tr>
+    <tr><td><strong>Authorization Server</strong></td><td>Zoho's accounts server (accounts.zoho.com)</td></tr>
+    <tr><td><strong>Access Token</strong></td><td>Short-lived credential (1 hour) used in API calls</td></tr>
+    <tr><td><strong>Refresh Token</strong></td><td>Long-lived credential used to get new access tokens</td></tr>
+    <tr><td><strong>Scopes</strong></td><td>Permissions defining what data the token can access</td></tr>
+  </table>
+</section>
+
+<section>
+  <h2 class="slide-title">Three Grant Types</h2>
+  <div class="two-col">
+    <div>
+      <h3><span class="badge badge-blue">Authorization Code</span></h3>
+      <ul style="font-size: 0.8em;">
+        <li>For web apps with a backend server</li>
+        <li>User grants permission via browser</li>
+        <li>Most common for user-facing apps</li>
+        <li>Returns access + refresh token</li>
+      </ul>
+      <h3><span class="badge badge-green">Refresh Token</span></h3>
+      <ul style="font-size: 0.8em;">
+        <li>Server-to-server renewal</li>
+        <li>No user interaction needed</li>
+        <li>Recommended for CRM integrations</li>
+        <li>Returns new access token only</li>
+      </ul>
+    </div>
+    <div>
+      <h3><span class="badge badge-orange">Client Credentials</span></h3>
+      <ul style="font-size: 0.8em;">
+        <li>Machine-to-machine auth</li>
+        <li>No user context &mdash; app acts as itself</li>
+        <li>Requires <code>soid</code> (sub-org ID)</li>
+        <li>No refresh token returned</li>
+      </ul>
+      <br>
+      <blockquote style="font-size: 0.75em;">For server-to-server CRM integration, the <strong>refresh_token</strong> grant is the recommended flow.</blockquote>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2 class="slide-title">Authorization Code Flow</h2>
+  <div class="flow-container">
+    <div class="flow-row"><span class="flow-step">1</span><div class="flow-box flow-client">Client App</div><span class="flow-arrow">&rarr;</span><div class="flow-box flow-user">End User</div><span class="flow-label">"Log in with Zoho"</span></div>
+    <div class="flow-row"><span class="flow-step">2</span><div class="flow-box flow-user">End User</div><span class="flow-arrow">&rarr;</span><div class="flow-box flow-zoho">accounts.zoho.com<br><small>GET /oauth/v2/auth</small></div><span class="flow-label">Redirect to Zoho login + consent</span></div>
+    <div class="flow-row"><span class="flow-step">3</span><div class="flow-box flow-zoho">Zoho Auth Server</div><span class="flow-arrow">&rarr;</span><div class="flow-box flow-client">Client App<br><small>redirect_uri</small></div><span class="flow-label">Redirect with ?code=AUTH_CODE</span></div>
+    <div class="flow-row"><span class="flow-step">4</span><div class="flow-box flow-client">Client App</div><span class="flow-arrow">&rarr;</span><div class="flow-box flow-zoho">accounts.zoho.com<br><small>POST /oauth/v2/token</small></div><span class="flow-label">Exchange code for tokens</span></div>
+    <div class="flow-row"><span class="flow-step">5</span><div class="flow-box flow-zoho">Zoho Auth Server</div><span class="flow-arrow">&rarr;</span><div class="flow-box flow-client">Client App</div><span class="flow-label">access_token + refresh_token</span></div>
+  </div>
+</section>
+
+<section>
+  <h2 class="slide-title">Step 1: Request Authorization Code</h2>
+  <p style="font-size: 0.8em;">Browser redirect to Zoho's authorization endpoint:</p>
+  <pre><code class="http">GET https://accounts.zoho.com/oauth/v2/auth
+    ?client_id=1000.XXXXXXXX
+    &response_type=code
+    &redirect_uri=https://yourapp.com/callback
+    &scope=ZohoCRM.modules.ALL
+    &access_type=offline
+    &prompt=consent</code></pre>
+  <br>
+  <table class="endpoint-table">
+    <tr><th>Parameter</th><th>Required</th><th>Description</th></tr>
+    <tr><td><code>client_id</code></td><td>Yes</td><td>From Zoho API Console</td></tr>
+    <tr><td><code>response_type</code></td><td>Yes</td><td>Must be <code>code</code></td></tr>
+    <tr><td><code>redirect_uri</code></td><td>Yes</td><td>Must match registered URI</td></tr>
+    <tr><td><code>scope</code></td><td>Yes</td><td>e.g. <code>ZohoCRM.modules.ALL</code></td></tr>
+    <tr><td><code>access_type</code></td><td>Yes</td><td><code>offline</code> = get refresh token</td></tr>
+    <tr><td><code>prompt</code></td><td>No</td><td><code>consent</code> = force consent screen</td></tr>
+  </table>
+</section>
+
+<section>
+  <h2 class="slide-title">Step 2: User Grants Permission</h2>
+  <p style="font-size: 0.8em;">Zoho shows a consent screen to the end user:</p>
+  <br>
+  <div style="background: white; border: 2px solid var(--zoho-red); border-radius: 12px; padding: 20px; text-align: center; font-size: 0.8em;">
+    <div style="color: var(--zoho-red); font-weight: bold; font-size: 1.2em; margin-bottom: 10px;">Your App Name</div>
+    <div style="color: #666; margin-bottom: 15px;">wants to access your Zoho account</div>
+    <div style="text-align: left; display: inline-block; margin-bottom: 15px;">
+      <div>&#10003; Access your CRM modules (Cases, Visits, Products)</div>
+      <div>&#10003; Read and write records</div>
+      <div>&#10003; Access organization settings</div>
+    </div>
+    <div>
+      <button style="background: var(--zoho-red); color: white; border: none; padding: 8px 24px; border-radius: 6px; font-weight: bold; cursor: pointer;">Accept</button>
+      <button style="background: #ddd; color: #333; border: none; padding: 8px 24px; border-radius: 6px; font-weight: bold; cursor: pointer; margin-left: 10px;">Deny</button>
+    </div>
+  </div>
+  <br>
+  <p style="font-size: 0.7em; color: #666;">
+    On Accept: redirect to <code>redirect_uri?code=1000.XXXXXXXX&location=us&accounts-server=https://accounts.zoho.com</code><br>
+    On Deny: redirect to <code>redirect_uri?error=access_denied</code><br>
+    Authorization code is valid for <strong>2 minutes only</strong>.
+  </p>
+</section>
+
+<section>
+  <h2 class="slide-title">Step 3: Exchange Code for Tokens</h2>
+  <p style="font-size: 0.8em;">Server-side POST to Zoho's token endpoint:</p>
+  <pre><code class="http">POST https://accounts.zoho.com/oauth/v2/token
+
+  grant_type=authorization_code
+  &client_id=1000.XXXXXXXX
+  &client_secret=XXXXXXXX
+  &redirect_uri=https://yourapp.com/callback
+  &code=1000.XXXXXXXX</code></pre>
+  <br>
+  <p style="font-size: 0.8em;">Response:</p>
+  <pre><code class="json">{
+  "access_token": "1000.abc123.def456",
+  "refresh_token": "1000.xyz789.uvw012",
+  "api_domain": "https://www.zohoapis.com",
+  "token_type": "Bearer",
+  "expires_in": 3600
+}</code></pre>
+</section>
+
+<section>
+  <h2 class="slide-title">Using the Access Token</h2>
+  <p style="font-size: 0.8em;">Every API call must include the token in the Authorization header:</p>
+  <pre><code class="http">GET https://www.zohoapis.com/crm/v3/Cases?fields=Subject,Status
+Authorization: Zoho-oauthtoken 1000.abc123.def456</code></pre>
+  <br>
+  <blockquote style="font-size: 0.8em;">
+    <strong>Important:</strong> Zoho's OAuth response says <code>token_type: Bearer</code>,
+    but the actual API header prefix must be <code>Zoho-oauthtoken</code>, not <code>Bearer</code>.
+    This is a Zoho-specific quirk.
+  </blockquote>
+</section>
+
+<section>
+  <h2 class="slide-title">Token Lifecycle</h2>
+  <div style="font-size: 0.8em;">
+    <div style="margin-bottom: 15px;">
+      <strong>Access Token</strong> &mdash; <span class="badge badge-green">valid 1 hour</span>
+      <div class="lifecycle-bar"><div class="lifecycle-segment lifecycle-active" style="width: 75%;">Active (3600s)</div><div class="lifecycle-segment lifecycle-expired" style="width: 25%;">Expired</div></div>
+    </div>
+    <div style="margin-bottom: 15px;">
+      <strong>Refresh Token</strong> &mdash; <span class="badge badge-blue">does not expire</span>
+      <div class="lifecycle-bar"><div class="lifecycle-segment lifecycle-refreshed" style="width: 100%;">Valid until revoked</div></div>
+    </div>
+    <div style="margin-bottom: 15px;">
+      <strong>Authorization Code</strong> &mdash; <span class="badge badge-orange">valid 2 minutes</span>
+      <div class="lifecycle-bar"><div class="lifecycle-segment lifecycle-active" style="width: 15%;">120s</div><div class="lifecycle-segment lifecycle-expired" style="width: 85%;">Expired</div></div>
+    </div>
+  </div>
+  <br>
+  <table class="endpoint-table">
+    <tr><th>Token</th><th>Lifetime</th><th>One-time use?</th></tr>
+    <tr><td>Authorization Code</td><td>2 minutes</td><td>Yes &mdash; can only be exchanged once</td></tr>
+    <tr><td>Access Token</td><td>1 hour (3600s)</td><td>No &mdash; reusable until expiry</td></tr>
+    <tr><td>Refresh Token</td><td>Indefinite</td><td>No &mdash; reusable until revoked</td></tr>
+  </table>
+</section>
+
+<section>
+  <h2 class="slide-title">Refreshing the Access Token</h2>
+  <p style="font-size: 0.8em;">When the access token expires, use the refresh token to get a new one:</p>
+  <pre><code class="http">POST https://accounts.zoho.com/oauth/v2/token
+
+  grant_type=refresh_token
+  &client_id=1000.XXXXXXXX
+  &client_secret=XXXXXXXX
+  &refresh_token=1000.xyz789.uvw012</code></pre>
+  <br>
+  <p style="font-size: 0.8em;">Response (no new refresh token):</p>
+  <pre><code class="json">{
+  "access_token": "1000.newABC.newDEF",
+  "api_domain": "https://www.zohoapis.com",
+  "token_type": "Bearer",
+  "expires_in": 3600
+}</code></pre>
+  <br>
+  <p style="font-size: 0.7em; color: #666;">The refresh token stays the same &mdash; only the access token is renewed.</p>
+</section>
+
+<section>
+  <h2 class="slide-title">The Refresh Cycle</h2>
+  <div class="flow-container">
+    <div class="flow-row"><div class="flow-box flow-client">App has<br>access_token + refresh_token</div></div>
+    <div class="flow-row"><span class="flow-arrow">&darr;</span><span class="flow-label">1 hour passes &mdash; access token expires</span></div>
+    <div class="flow-row"><div class="flow-box flow-client">App sends refresh_token</div><span class="flow-arrow">&rarr;</span><div class="flow-box flow-zoho">POST /oauth/v2/token<br><small>grant_type=refresh_token</small></div></div>
+    <div class="flow-row"><span class="flow-arrow">&darr;</span><span class="flow-label">Zoho returns new access_token</span></div>
+    <div class="flow-row"><div class="flow-box flow-client">App uses new<br>access_token</div></div>
+    <div class="flow-row"><span class="flow-arrow">&darr;</span><span class="flow-label">Repeat until refresh token is revoked</span></div>
+    <div class="flow-row"><div class="flow-box flow-client">App sends refresh_token</div><span class="flow-arrow">&rarr;</span><div class="flow-box flow-zoho">POST /oauth/v2/token/revoke</div></div>
+  </div>
+</section>
+
+<section>
+  <h2 class="slide-title">Revoking Tokens</h2>
+  <p style="font-size: 0.8em;">When access is no longer needed, revoke the refresh token:</p>
+  <pre><code class="http">POST https://accounts.zoho.com/oauth/v2/token/revoke
+Authorization: Basic {base64(client_id:client_secret)}
+
+token=1000.xyz789.uvw012
+&token_type=refresh_token</code></pre>
+  <br>
+  <p style="font-size: 0.8em;">Response:</p>
+  <pre><code class="json">{ "status": "success" }</code></pre>
+  <br>
+  <blockquote style="font-size: 0.8em;">Revoking a refresh token <strong>also invalidates all access tokens</strong> generated from it. This is a cascade effect.</blockquote>
+</section>
+
+<section>
+  <h2 class="slide-title">OAuth Endpoints Summary</h2>
+  <table class="endpoint-table">
+    <tr><th>Endpoint</th><th>Method</th><th>Purpose</th></tr>
+    <tr><td><code>/oauth/v2/auth</code></td><td><span class="method-get">GET</span></td><td>Authorization code request (browser redirect)</td></tr>
+    <tr><td><code>/oauth/v2/token</code></td><td><span class="method-post">POST</span></td><td>Exchange code for tokens / Refresh access token</td></tr>
+    <tr><td><code>/oauth/v2/token/revoke</code></td><td><span class="method-post">POST</span></td><td>Revoke a refresh or access token</td></tr>
+  </table>
+  <br>
+  <h3>Domain-specific Accounts URLs</h3>
+  <table class="endpoint-table">
+    <tr><th>Region</th><th>Accounts URL</th></tr>
+    <tr><td>US</td><td><code>https://accounts.zoho.com</code></td></tr>
+    <tr><td>EU</td><td><code>https://accounts.zoho.eu</code></td></tr>
+    <tr><td>IN</td><td><code>https://accounts.zoho.in</code></td></tr>
+    <tr><td>AU</td><td><code>https://accounts.zoho.com.au</code></td></tr>
+    <tr><td>JP</td><td><code>https://accounts.zoho.jp</code></td></tr>
+    <tr><td>CA</td><td><code>https://accounts.zohocloud.ca</code></td></tr>
+  </table>
+</section>
+
+<section>
+  <h2 class="slide-title">OAuth Error Handling</h2>
+  <p style="font-size: 0.8em;">Zoho returns errors as <strong>HTTP 200</strong> with an error body (a quirk):</p>
+  <pre><code class="json">// HTTP 200 (not 400!)
+{ "error": "invalid_client" }</code></pre>
+  <br>
+  <table class="endpoint-table">
+    <tr><th>Error</th><th>Cause</th></tr>
+    <tr><td><code>invalid_client</code></td><td>Wrong client_id or client_secret</td></tr>
+    <tr><td><code>invalid_code</code></td><td>Expired/used auth code, or wrong refresh token</td></tr>
+    <tr><td><code>invalid_redirect_uri</code></td><td>redirect_uri doesn't match registered URI</td></tr>
+    <tr><td><code>unsupported_grant_type</code></td><td>Unknown grant_type value</td></tr>
+    <tr><td><code>invalid_request</code></td><td>Missing required parameter (e.g. soid)</td></tr>
+  </table>
+  <br>
+  <p style="font-size: 0.7em; color: #666;">For API calls (not OAuth), errors use a different format: <code>{"code": "INVALID_TOKEN", "details": {}, "message": "...", "status": "error"}</code></p>
+</section>
+
+<section>
+  <h2 class="slide-title">Interactive: Full OAuth Flow</h2>
+  <div id="interactive-diagram">
+    <div class="diagram-stage" id="diagram-stage">
+      <svg class="diagram-svg" id="diagram-svg"></svg>
+      <div class="diagram-node client" id="node-client" onclick="selectNode('client')">Client App</div>
+      <div class="diagram-node auth-server" id="node-auth" onclick="selectNode('auth')">Zoho Auth Server</div>
+      <div class="diagram-node user" id="node-user" onclick="selectNode('user')">End User</div>
+      <div class="diagram-node resource" id="node-resource" onclick="selectNode('resource')">CRM API</div>
+      <div class="diagram-node token-store" id="node-tokens" onclick="selectNode('tokens')">Token Store</div>
+    </div>
+    <div class="diagram-detail" id="diagram-detail">
+      <h4>Click a node or use the buttons below</h4>
+      <p>Step through the OAuth flow to see what happens at each stage.</p>
+    </div>
+    <div class="diagram-controls">
+      <button class="diagram-btn diagram-btn-secondary" onclick="resetDiagram()">&#8634; Reset</button>
+      <button class="diagram-btn diagram-btn-primary" id="step-btn" onclick="stepDiagram()">Step 1: Request Auth &rarr;</button>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2 class="slide-title">Summary</h2>
+  <ul>
+    <li><strong>3 grant types:</strong> authorization_code, refresh_token, client_credentials</li>
+    <li><strong>3 endpoints:</strong> <code>/oauth/v2/auth</code>, <code>/oauth/v2/token</code>, <code>/oauth/v2/token/revoke</code></li>
+    <li><strong>3 token types:</strong> auth code (2 min), access token (1 hour), refresh token (indefinite)</li>
+    <li>Auth header: <code>Zoho-oauthtoken {token}</code> (not <code>Bearer</code>)</li>
+    <li>OAuth errors return <strong>HTTP 200</strong> with <code>{"error": "..."}</code></li>
+    <li>Refresh tokens don't expire &mdash; use them to renew access tokens indefinitely</li>
+    <li>Revoking a refresh token cascades to all derived access tokens</li>
+    <li>Use domain-specific accounts URLs (US, EU, IN, AU, JP, CA)</li>
+  </ul>
+  <br>
+  <blockquote style="font-size: 0.8em;">For server-to-server CRM integration: use <strong>refresh_token</strong> grant. Get the initial refresh token once via authorization_code flow, then renew access tokens automatically.</blockquote>
+</section>
+
+</div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/highlight/highlight.js"></script>
+<script>
+Reveal.initialize({
+  hash: false,
+  slideNumber: 'c/t',
+  margin: 0.04,
+  transition: 'slide',
+  embedded: true,
+  plugins: [RevealHighlight]
+});
+
+var step = 0;
+var maxSteps = 8;
+var steps = [
+  { title: "Step 1: Request Auth", nodes: ['client', 'user'], detail: "<h4>Step 1: User initiates login</h4><p>The end user clicks a 'Login with Zoho' button in the client app.</p><pre>Client App redirects browser to:\\nGET https://accounts.zoho.com/oauth/v2/auth\\n  ?client_id=1000.XXX\\n  &response_type=code\\n  &redirect_uri=https://yourapp.com/callback\\n  &scope=ZohoCRM.modules.ALL\\n  &access_type=offline</pre>" },
+  { title: "Step 2: User Consent", nodes: ['user', 'auth'], detail: "<h4>Step 2: User grants permission</h4><p>Zoho displays a consent screen showing the requested scopes. The user clicks Accept.</p><pre>Zoho Auth Server -> redirect to:\\nhttps://yourapp.com/callback\\n  ?code=1000.AUTH_CODE\\n  &location=us\\n  &accounts-server=https://accounts.zoho.com</pre><p style='color:#e42527;'>Auth code is valid for 2 minutes only.</p>" },
+  { title: "Step 3: Exchange Code", nodes: ['client', 'auth'], detail: "<h4>Step 3: Token exchange</h4><p>Client app makes a server-side POST to exchange the auth code for tokens.</p><pre>POST https://accounts.zoho.com/oauth/v2/token\\n\\ngrant_type=authorization_code\\n&client_id=1000.XXX\\n&client_secret=XXX\\n&redirect_uri=https://yourapp.com/callback\\n&code=1000.AUTH_CODE</pre>" },
+  { title: "Step 4: Tokens Received", nodes: ['auth', 'tokens'], detail: '<h4>Step 4: Tokens received</h4><p>Zoho returns both an access token and a refresh token.</p><pre>{\n  "access_token": "1000.abc.def",\n  "refresh_token": "1000.xyz.uvw",\n  "api_domain": "https://www.zohoapis.com",\n  "token_type": "Bearer",\n  "expires_in": 3600\n}</pre><p>App stores both tokens. Access token expires in 1 hour.</p>' },
+  { title: "Step 5: API Call", nodes: ['client', 'resource'], detail: "<h4>Step 5: API calls with access token</h4><p>App uses the access token in the Authorization header for every CRM API call.</p><pre>GET https://www.zohoapis.com/crm/v3/Cases?fields=Subject,Status\\nAuthorization: Zoho-oauthtoken 1000.abc.def</pre><p style='color:#e42527;'>Header prefix is Zoho-oauthtoken, NOT Bearer.</p>" },
+  { title: "Step 6: Token Expires", nodes: ['tokens'], detail: '<h4>Step 6: Token expiry (after 1 hour)</h4><p>The access token expires. API calls now return 401 INVALID_TOKEN.</p><pre>{\n  "code": "INVALID_TOKEN",\n  "details": {},\n  "message": "invalid oauth token",\n  "status": "error"\n}</pre><p>But the refresh token is still valid!</p>' },
+  { title: "Step 7: Refresh Token", nodes: ['client', 'auth', 'tokens'], detail: '<h4>Step 7: Refresh access token</h4><p>App sends the refresh token to get a new access token. No user interaction needed.</p><pre>POST https://accounts.zoho.com/oauth/v2/token\n\ngrant_type=refresh_token\n&client_id=1000.XXX\n&client_secret=XXX\n&refresh_token=1000.xyz.uvw</pre><pre>{\n  "access_token": "1000.NEW.def",\n  "api_domain": "https://www.zohoapis.com",\n  "token_type": "Bearer",\n  "expires_in": 3600\n}</pre><p>Refresh token stays the same. Cycle repeats.</p>' },
+  { title: "Step 8: Revoke", nodes: ['client', 'auth', 'tokens'], detail: '<h4>Step 8: Revoke refresh token</h4><p>When access is no longer needed, revoke the refresh token.</p><pre>POST https://accounts.zoho.com/oauth/v2/token/revoke\nAuthorization: Basic base64(client_id:client_secret)\n\ntoken=1000.xyz.uvw\ntoken_type=refresh_token</pre><pre>{ "status": "success" }</pre><p style="color:#e42527;">All access tokens from this refresh token are also invalidated.</p>' }
+];
+
+function drawLines() {
+  var svg = document.getElementById('diagram-svg');
+  var stage = document.getElementById('diagram-stage');
+  if (!svg || !stage) return;
+  svg.innerHTML = '';
+  svg.setAttribute('viewBox', '0 0 ' + stage.offsetWidth + ' ' + stage.offsetHeight);
+  svg.setAttribute('preserveAspectRatio', 'none');
+  var nodes = { client: document.getElementById('node-client'), auth: document.getElementById('node-auth'), user: document.getElementById('node-user'), resource: document.getElementById('node-resource'), tokens: document.getElementById('node-tokens') };
+  var connections = [['client','auth'],['client','user'],['client','resource'],['client','tokens'],['auth','tokens']];
+  connections.forEach(function(pair) {
+    var n1 = nodes[pair[0]], n2 = nodes[pair[1]];
+    var x1 = n1.offsetLeft + n1.offsetWidth/2, y1 = n1.offsetTop + n1.offsetHeight/2;
+    var x2 = n2.offsetLeft + n2.offsetWidth/2, y2 = n2.offsetTop + n2.offsetHeight/2;
+    var line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    line.setAttribute('x1',x1); line.setAttribute('y1',y1); line.setAttribute('x2',x2); line.setAttribute('y2',y2);
+    line.setAttribute('stroke','#ccc'); line.setAttribute('stroke-width','2'); line.setAttribute('stroke-dasharray','5,5');
+    svg.appendChild(line);
+  });
+}
+
+function selectNode(nodeId) {
+  document.querySelectorAll('.diagram-node').forEach(function(n) { n.classList.remove('active'); });
+  var descs = {
+    client: "<h4>Client App</h4><p>Your application that wants to access Zoho CRM data.</p><p>Initiates OAuth flow, stores tokens, makes API calls with the access token.</p>",
+    auth: "<h4>Zoho Auth Server</h4><p>accounts.zoho.com &mdash; issues authorization codes and tokens.</p><p>Endpoints: <code>GET /oauth/v2/auth</code>, <code>POST /oauth/v2/token</code>, <code>POST /oauth/v2/token/revoke</code></p>",
+    user: "<h4>End User</h4><p>The Zoho account holder who grants permission to your app.</p><p>Interacts with the consent screen during the authorization code flow.</p>",
+    resource: "<h4>CRM API</h4><p>www.zohoapis.com &mdash; the Zoho CRM REST API.</p><p>Requires <code>Authorization: Zoho-oauthtoken {access_token}</code> header on every request.</p>",
+    tokens: "<h4>Token Store</h4><p>Where your app securely stores tokens:</p><ul><li>Access token (1 hour TTL)</li><li>Refresh token (indefinite)</li></ul><p>Use the refresh token to get new access tokens when they expire.</p>"
+  };
+  document.getElementById('node-' + nodeId).classList.add('active');
+  document.getElementById('diagram-detail').innerHTML = descs[nodeId];
+}
+
+function stepDiagram() {
+  if (step >= maxSteps) { resetDiagram(); return; }
+  var s = steps[step];
+  document.querySelectorAll('.diagram-node').forEach(function(n) { n.classList.remove('active'); });
+  s.nodes.forEach(function(nodeId) { document.getElementById('node-' + nodeId).classList.add('active'); });
+  document.getElementById('diagram-detail').innerHTML = s.detail;
+  step++;
+  var btn = document.getElementById('step-btn');
+  if (step >= maxSteps) { btn.innerHTML = '&#8634; Restart'; } else { btn.innerHTML = 'Step ' + (step+1) + ': ' + steps[step].title + ' &rarr;'; }
+}
+
+function resetDiagram() {
+  step = 0;
+  document.querySelectorAll('.diagram-node').forEach(function(n) { n.classList.remove('active'); });
+  document.getElementById('diagram-detail').innerHTML = '<h4>Click a node or use the buttons below</h4><p>Step through the OAuth flow to see what happens at each stage.</p>';
+  document.getElementById('step-btn').innerHTML = 'Step 1: Request Auth &rarr;';
+}
+</script>
+</body>
+</html>

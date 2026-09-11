@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# Virtual env
+.venv/
+venv/
+
+# Env / secrets
+.env
+.env.*
+!/.env.example
+
+# SQLite
+*.db
+*.db-journal
+
+# OS / editor
+.DS_Store
+*.swp
+.idea/
+.vscode/
+
+# Windows zone identifiers
+*:Zone.Identifier
+
+# Docs (local-only)
+*.docx
