@@ -6,6 +6,7 @@ from pathlib import Path
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.exceptions import HTTPException
 
 from app.api.coql import router as coql_router
 from app.api.control import load_seeds, router as control_router
@@ -18,7 +19,7 @@ from app.db import create_schema, drop_schema
 from app.docs import get_docs_html
 from app.middleware.faults import FaultInjectionMiddleware
 from app.middleware.ratelimit import RateLimitMiddleware
-from app.schemas.zoho import ZohoAPIError
+from app.schemas.zoho import ZohoAPIError, error_body
 
 DESCRIPTION = """
 ## Mock Zoho CRM API
@@ -60,6 +61,55 @@ Set these env vars in `tadiran-force-app-api`:
 ZOHO_BASE_URL=http://localhost:8090/crm/v3
 ZOHO_ACCOUNTS_URL=http://localhost:8090
 ```
+
+### Error codes
+
+All errors use the Zoho envelope: `{"code": "...", "details": {...}, "message": "...", "status": "error"}`.
+
+| Code | HTTP | Trigger |
+|------|------|---------|
+| `INVALID_TOKEN` | 401 | Missing/bad `Authorization` header or expired token |
+| `OAUTH_SCOPE_MISMATCH` | 401 | Token lacks required scope |
+| `AUTHENTICATION_FAILURE` | 401 | Authentication failed |
+| `NO_PERMISSION` | 403 | User lacks permission for the resource |
+| `FEATURE_NOT_SUPPORTED` | 403 | Feature not enabled for the edition (injectable via `/__mock__/faults`) |
+| `INVALID_MODULE` | 400 | Unknown module name in the URL |
+| `MANDATORY_NOT_FOUND` | 400 | Missing required field on write |
+| `INVALID_DATA` | 400 | Bad field value or data type |
+| `INVALID_QUERY_PARAM` | 400 | Bad query parameter |
+| `INVALID_QUERY` | 400 | Malformed COQL query |
+| `REQUIRED_PARAM_MISSING` | 400 | Required parameter missing |
+| `DUPLICATE_DATA` | 400 | Duplicate value on a unique field |
+| `LIMIT_EXCEEDED` | 400 | Bulk write exceeds 100 records or COQL exceeds 50 fields |
+| `PATTERN_NOT_MATCHED` | 400 | Parameter value not in allowed set (e.g. `sort_order`) |
+| `INVALID_REQUEST_METHOD` | 400 | Wrong HTTP method for a `/crm/` endpoint |
+| `LICENSE_LIMIT_EXCEEDED` | 400 | License limit exceeded (injectable via `/__mock__/faults`) |
+| `UNABLE_TO_PARSE_DATA_TYPE` | 400 | Non-numeric record ID where integer expected |
+| `RESOURCE_NOT_FOUND` | 404 | Single-record GET on a non-existent ID |
+| `INVALID_URL_PATTERN` | 404 | Bad URL or unknown related list name |
+| `API_LIMIT_EXCEEDED` | 429 | API credit exhaustion (injectable via `/__mock__/faults`) |
+| `TOO_MANY_REQUESTS` | 429 | Rate limit hit — credits exhausted for the window |
+| `INTERNAL_ERROR` | 500 | Internal server error (injectable via `/__mock__/faults`) |
+
+**OAuth endpoint quirk:** `POST /oauth/v2/token` returns **HTTP 200** with `{"error": "invalid_client"}` on credential failures — not the CRM error envelope above.
+
+### Rate limits
+
+Every response includes these headers:
+
+```
+X-RATELIMIT-LIMIT: 5000
+X-RATELIMIT-REMAINING: <credits left>
+X-RATELIMIT-RESET: <unix timestamp when window resets>
+```
+
+- **Credits:** 5000 per rolling 60-second window (configurable via `MOCKZOHO_RATE_LIMIT_CREDITS` / `MOCKZOHO_RATE_LIMIT_WINDOW_SECONDS`)
+- Each CRM call consumes 1 credit
+- When exhausted → **HTTP 429** with `TOO_MANY_REQUESTS`
+- Use `POST /__mock__/ratelimit` to set `remaining` or `limit` for testing
+- Use `POST /__mock__/ratelimit/reset` to refill credits
+
+**Two 429 scenarios:** `TOO_MANY_REQUESTS` = real credit exhaustion (auto); `API_LIMIT_EXCEEDED` = injectable fault only.
 """
 
 
@@ -104,6 +154,20 @@ app.mount("/presentations", StaticFiles(directory=str(Path(__file__).parent / "p
 @app.exception_handler(ZohoAPIError)
 async def zoho_error_handler(request: Request, exc: ZohoAPIError) -> JSONResponse:
     return JSONResponse(status_code=exc.status_code, content=exc.body())
+
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException) -> JSONResponse:
+    if exc.status_code == 405 and request.url.path.startswith("/crm/"):
+        return JSONResponse(
+            status_code=400,
+            content=error_body(
+                "INVALID_REQUEST_METHOD",
+                "The http request method type is not a valid one",
+                {},
+            ),
+        )
+    return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
 
 
 @app.get("/health", tags=["Health"], summary="Health check")

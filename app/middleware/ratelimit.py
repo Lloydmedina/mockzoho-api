@@ -96,7 +96,7 @@ class RateLimitMiddleware:
                     "Many requests fired than the allowed limit for a minute. Please check the header X-RATELIMIT-RESET for the reset time",
                     {"limit": credit_window.limit, "window_seconds": credit_window.window_seconds},
                 ),
-                headers=self._headers(),
+                headers=self._headers(include_retry_after=True),
             )
             await response(scope, receive, send)
             return
@@ -110,9 +110,13 @@ class RateLimitMiddleware:
 
         await self.app(scope, receive, wrapped_send)
 
-    def _headers(self) -> dict[str, str]:
-        return {
+    def _headers(self, include_retry_after: bool = False) -> dict[str, str]:
+        headers = {
             "X-RATELIMIT-LIMIT": str(credit_window.limit),
             "X-RATELIMIT-REMAINING": str(credit_window.remaining),
-            "X-RATELIMIT-RESET": str(credit_window.reset_at),
+            "X-RATELIMIT-RESET": str(credit_window.reset_at * 1000),
         }
+        if include_retry_after:
+            retry_after = max(1, credit_window.reset_at - int(time.time()))
+            headers["Retry-After"] = str(retry_after)
+        return headers

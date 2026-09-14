@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Zoho CRM Error Codes & Rate Limits</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/theme/white.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/highlight/monokai.css">
+<style>
+  :root {
+    --zoho-red: #e42527;
+    --zoho-dark: #2c2c2c;
+    --zoho-light: #f8f8f8;
+    --zoho-blue: #2d7ff9;
+    --zoho-green: #2e9e4f;
+    --zoho-orange: #f5a623;
+  }
+  .reveal { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; }
+  .reveal .slides section {
+    font-size: 0.50em;
+    line-height: 1.25;
+    max-height: 700px;
+    overflow-y: auto;
+  }
+  .reveal .slides section ul,
+  .reveal .slides section ol { margin-top: 0.3em; margin-bottom: 0.3em; }
+  .reveal .slides section li { margin-top: 0.25em; }
+  .reveal .slides section h1,
+  .reveal .slides section h2,
+  .reveal .slides section h3 { margin: 0.2em 0 0.35em 0; }
+  .reveal .slides section blockquote { margin: 0.4em 0; }
+  .reveal h1, .reveal h2, .reveal h3 { color: var(--zoho-dark); text-transform: none; }
+  .reveal h1 { font-size: 1.8em; }
+  .reveal h2 { font-size: 1.4em; }
+  .reveal h3 { font-size: 1.1em; }
+  .reveal section { text-align: left; }
+  .reveal pre { font-size: 0.55em; width: 100%; }
+  .reveal pre code { padding: 0.5em; }
+  .reveal code { color: var(--zoho-red); }
+  .reveal .slide-title { color: var(--zoho-red); }
+  .reveal blockquote { background: var(--zoho-light); border-left: 4px solid var(--zoho-red); padding: 0.5em 1em; font-style: normal; font-size: 0.8em; }
+
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.75em; font-weight: 600; }
+  .badge-red { background: #fce8e8; color: var(--zoho-red); }
+  .badge-green { background: #e8f8ea; color: var(--zoho-green); }
+  .badge-blue { background: #e8f0fe; color: var(--zoho-blue); }
+  .badge-orange { background: #fff3e0; color: var(--zoho-orange); }
+  .badge-gray { background: #eee; color: #666; }
+
+  .error-card { border: 1px solid #ddd; border-radius: 8px; padding: 12px 16px; margin-bottom: 10px; background: white; }
+  .error-card h3 { margin: 0 0 6px 0; display: flex; align-items: center; gap: 8px; }
+  .error-card .error-code { font-family: monospace; font-size: 1em; color: var(--zoho-red); }
+  .error-card .error-http { font-size: 0.8em; }
+  .error-card p { margin: 4px 0; font-size: 0.85em; }
+  .error-card .error-trigger { color: #666; }
+
+  .http-401 { color: var(--zoho-orange); }
+  .http-403 { color: var(--zoho-red); }
+  .http-400 { color: var(--zoho-blue); }
+  .http-404 { color: #8b5cf6; }
+  .http-429 { color: var(--zoho-red); }
+  .http-500 { color: var(--zoho-dark); }
+
+  .endpoint-table { font-size: 0.65em; width: 100%; border-collapse: collapse; }
+  .endpoint-table th { background: var(--zoho-dark); color: white; padding: 6px 10px; text-align: left; }
+  .endpoint-table td { padding: 6px 10px; border-bottom: 1px solid #ddd; }
+  .endpoint-table tr:nth-child(even) { background: var(--zoho-light); }
+
+  .two-col { display: flex; gap: 20px; }
+  .two-col > div { flex: 1; }
+
+  .lifecycle-bar { display: flex; width: 100%; height: 40px; border-radius: 6px; overflow: hidden; margin: 10px 0; font-size: 0.7em; }
+  .lifecycle-segment { display: flex; align-items: center; justify-content: center; color: white; font-weight: 600; transition: all 0.5s; }
+  .lifecycle-active { background: var(--zoho-green); }
+  .lifecycle-exhausted { background: var(--zoho-red); }
+  .lifecycle-reset { background: var(--zoho-blue); }
+
+  .flow-container { display: flex; flex-direction: column; gap: 12px; align-items: center; font-size: 0.65em; }
+  .flow-row { display: flex; align-items: center; gap: 8px; width: 100%; justify-content: center; }
+  .flow-box { padding: 10px 16px; border-radius: 8px; text-align: center; min-width: 120px; font-weight: 600; }
+  .flow-client { background: #e8f0fe; border: 2px solid var(--zoho-blue); color: var(--zoho-blue); }
+  .flow-zoho { background: #fce8e8; border: 2px solid var(--zoho-red); color: var(--zoho-red); }
+  .flow-arrow { font-size: 1.5em; color: #999; }
+  .flow-label { font-size: 0.85em; color: #666; text-align: center; margin-top: -8px; }
+</style>
+</head>
+<body>
+<div class="reveal">
+<div class="slides">
+
+<section>
+  <h1 class="slide-title">Zoho CRM Error Codes & Rate Limits</h1>
+  <p>Understanding API error responses and rate limiting in the Zoho CRM REST API</p>
+  <p style="font-size: 0.7em; color: #999;">Use arrow keys or space to navigate</p>
+</section>
+
+<section>
+  <h2 class="slide-title">Error Response Format</h2>
+  <p style="font-size: 0.8em;">All CRM API errors use the same envelope:</p>
+  <pre><code class="json">{
+  "code": "INVALID_TOKEN",
+  "details": {},
+  "message": "invalid oauth token",
+  "status": "error"
+}</code></pre>
+  <br>
+  <table class="endpoint-table">
+    <tr><th>Field</th><th>Description</th></tr>
+    <tr><td><code>code</code></td><td>Machine-readable error code (e.g. <code>INVALID_TOKEN</code>)</td></tr>
+    <tr><td><code>message</code></td><td>Human-readable description</td></tr>
+    <tr><td><code>details</code></td><td>Additional context (field name, given value, etc.)</td></tr>
+    <tr><td><code>status</code></td><td>Always <code>"error"</code> for errors</td></tr>
+  </table>
+  <br>
+  <blockquote style="font-size: 0.8em;"><strong>OAuth endpoint quirk:</strong> <code>POST /oauth/v2/token</code> returns <strong>HTTP 200</strong> with <code>{"error": "invalid_client"}</code> on credential failures &mdash; not the CRM error envelope above.</blockquote>
+</section>
+
+<section>
+  <h2 class="slide-title">Error Codes &mdash; HTTP 401 (Authentication)</h2>
+  <div class="error-card">
+    <h3><span class="error-code">INVALID_TOKEN</span> <span class="badge badge-orange http-401">401</span></h3>
+    <p><strong>Message:</strong> "invalid oauth token"</p>
+    <p class="error-trigger"><strong>Trigger:</strong> Missing/bad <code>Authorization</code> header or expired token</p>
+  </div>
+  <div class="error-card">
+    <h3><span class="error-code">OAUTH_SCOPE_MISMATCH</span> <span class="badge badge-orange http-401">401</span></h3>
+    <p><strong>Message:</strong> "invalid oauth scope to access this URL"</p>
+    <p class="error-trigger"><strong>Trigger:</strong> Token lacks required scope for the endpoint</p>
+  </div>
+  <div class="error-card">
+    <h3><span class="error-code">AUTHENTICATION_FAILURE</span> <span class="badge badge-orange http-401">401</span></h3>
+    <p><strong>Message:</strong> "authentication failed"</p>
+    <p class="error-trigger"><strong>Trigger:</strong> Authentication failed (e.g. wrong domain URL)</p>
+  </div>
+</section>
+
+<section>
+  <h2 class="slide-title">Error Codes &mdash; HTTP 403 (Authorization)</h2>
+  <div class="error-card">
+    <h3><span class="error-code">NO_PERMISSION</span> <span class="badge badge-red http-403">403</span></h3>
+    <p><strong>Message:</strong> "no permission to read"</p>
+    <p class="error-trigger"><strong>Trigger:</strong> User lacks permission for the resource</p>
+  </div>
+  <div class="error-card">
+    <h3><span class="error-code">FEATURE_NOT_SUPPORTED</span> <span class="badge badge-red http-403">403</span></h3>
+    <p><strong>Message:</strong> "The feature is not supported for your edition"</p>
+    <p class="error-trigger"><strong>Trigger:</strong> Feature not enabled for the account edition</p>
+  </div>
+  <div class="error-card">
+    <h3><span class="error-code">INVALID_MODULE</span> <span class="badge badge-blue http-400">400</span></h3>
+    <p><strong>Message:</strong> "the module name given seems to be invalid"</p>
+    <p class="error-trigger"><strong>Trigger:</strong> Unknown module name in the URL path</p>
+  </div>
+</section>
+
+<section>
+  <h2 class="slide-title">Error Codes &mdash; HTTP 404 (Not Found)</h2>
+  <div class="error-card">
+    <h3><span class="error-code">RESOURCE_NOT_FOUND</span> <span class="badge badge-gray http-404">404</span></h3>
+    <p><strong>Message:</strong> "the record does not exist"</p>
+    <p class="error-trigger"><strong>Trigger:</strong> Single-record GET on a non-existent ID</p>
+  </div>
+  <div class="error-card">
+    <h3><span class="error-code">INVALID_URL_PATTERN</span> <span class="badge badge-gray http-404">404</span></h3>
+    <p><strong>Message:</strong> "Please check if the URL trying to access is a correct one"</p>
+    <p class="error-trigger"><strong>Trigger:</strong> Bad URL or unknown related list name</p>
+  </div>
+  <div class="error-card">
+    <h3><span class="error-code">MANDATORY_NOT_FOUND</span> <span class="badge badge-blue http-400">400</span></h3>
+    <p><strong>Message:</strong> "required field not found"</p>
+    <p class="error-trigger"><strong>Trigger:</strong> Missing required field on write</p>
+  </div>
+</section>
+
+<section>
+  <h2 class="slide-title">Error Codes &mdash; HTTP 400 (Validation)</h2>
+  <div class="error-card">
+    <h3><span class="error-code">INVALID_DATA</span> <span class="badge badge-blue http-400">400</span></h3>
+    <p><strong>Message:</strong> "invalid data"</p>
+    <p class="error-trigger"><strong>Trigger:</strong> Bad field value or data type mismatch</p>
+  </div>
+  <div class="error-card">
+    <h3><span class="error-code">INVALID_QUERY_PARAM</span> <span class="badge badge-blue http-400">400</span></h3>
+    <p><strong>Message:</strong> "one of the expected parameter is missing or invalid"</p>
+    <p class="error-trigger"><strong>Trigger:</strong> Bad query parameter (e.g. <code>per_page</code> over max)</p>
+  </div>
+  <div class="error-card">
+    <h3><span class="error-code">INVALID_QUERY</span> <span class="badge badge-blue http-400">400</span></h3>
+    <p><strong>Message:</strong> "invalid query formed"</p>
+    <p class="error-trigger"><strong>Trigger:</strong> Malformed COQL query</p>
+  </div>
+</section>
+
+<section>
+  <h2 class="slide-title">Error Codes &mdash; HTTP 400 (Validation cont.)</h2>
+  <div class="error-card">
+    <h3><span class="error-code">REQUIRED_PARAM_MISSING</span> <span class="badge badge-blue http-400">400</span></h3>
+    <p><strong>Message:</strong> "required parameter is missing"</p>
+    <p class="error-trigger"><strong>Trigger:</strong> Required parameter missing (e.g. <code>fields</code> on list)</p>
+  </div>
+  <div class="error-card">
+    <h3><span class="error-code">DUPLICATE_DATA</span> <span class="badge badge-blue http-400">400</span></h3>
+    <p><strong>Message:</strong> "duplicate data"</p>
+    <p class="error-trigger"><strong>Trigger:</strong> Duplicate value on a unique field</p>
+  </div>
+  <div class="error-card">
+    <h3><span class="error-code">LIMIT_EXCEEDED</span> <span class="badge badge-blue http-400">400</span></h3>
+    <p><strong>Message:</strong> "maximum number of records allowed is exceeded"</p>
+    <p class="error-trigger"><strong>Trigger:</strong> Bulk write > 100 records, or COQL > 50 fields</p>
+  </div>
+</section>
+
+<section>
+  <h2 class="slide-title">Error Codes &mdash; HTTP 400 (Request format)</h2>
+  <div class="error-card">
+    <h3><span class="error-code">PATTERN_NOT_MATCHED</span> <span class="badge badge-blue http-400">400</span></h3>
+    <p><strong>Message:</strong> "Please check whether the input values are correct"</p>
+    <p class="error-trigger"><strong>Trigger:</strong> Parameter value not in allowed set (e.g. <code>sort_order</code>)</p>
+  </div>
+  <div class="error-card">
+    <h3><span class="error-code">INVALID_REQUEST_METHOD</span> <span class="badge badge-blue http-400">400</span></h3>
+    <p><strong>Message:</strong> "The http request method type is not a valid one"</p>
+    <p class="error-trigger"><strong>Trigger:</strong> Wrong HTTP method for a <code>/crm/</code> endpoint</p>
+  </div>
+  <div class="error-card">
+    <h3><span class="error-code">LICENSE_LIMIT_EXCEEDED</span> <span class="badge badge-blue http-400">400</span></h3>
+    <p><strong>Message:</strong> "Request exceeds your license limit"</p>
+    <p class="error-trigger"><strong>Trigger:</strong> License limit exceeded (injectable via <code>/__mock__/faults</code>)</p>
+  </div>
+</section>
+
+<section>
+  <h2 class="slide-title">Error Codes &mdash; HTTP 400 & 429 (Limits)</h2>
+  <div class="error-card">
+    <h3><span class="error-code">UNABLE_TO_PARSE_DATA_TYPE</span> <span class="badge badge-blue http-400">400</span></h3>
+    <p><strong>Message:</strong> "either the request body or parameters is in wrong format"</p>
+    <p class="error-trigger"><strong>Trigger:</strong> Non-numeric record ID where integer expected</p>
+  </div>
+  <div class="error-card">
+    <h3><span class="error-code">API_LIMIT_EXCEEDED</span> <span class="badge badge-red http-429">429</span></h3>
+    <p><strong>Message:</strong> "number of allowed API calls exceeded"</p>
+    <p class="error-trigger"><strong>Trigger:</strong> API credit exhaustion (injectable via <code>/__mock__/faults</code>)</p>
+  </div>
+  <div class="error-card">
+    <h3><span class="error-code">TOO_MANY_REQUESTS</span> <span class="badge badge-red http-429">429</span></h3>
+    <p><strong>Message:</strong> "concurrency limit exceeded"</p>
+    <p class="error-trigger"><strong>Trigger:</strong> Rate limit hit &mdash; credits exhausted for the window</p>
+  </div>
+</section>
+
+<section>
+  <h2 class="slide-title">Error Codes &mdash; HTTP 500 (Server)</h2>
+  <div class="error-card">
+    <h3><span class="error-code">INTERNAL_ERROR</span> <span class="badge badge-gray http-500">500</span></h3>
+    <p><strong>Message:</strong> "internal server error"</p>
+    <p class="error-trigger"><strong>Trigger:</strong> Unexpected server error (injectable via <code>/__mock__/faults</code>)</p>
+  </div>
+  <br>
+  <blockquote style="font-size: 0.8em;"><strong>Catalog-only codes:</strong> <code>LICENSE_LIMIT_EXCEEDED</code>, <code>FEATURE_NOT_SUPPORTED</code>, <code>API_LIMIT_EXCEEDED</code>, and <code>INTERNAL_ERROR</code> have no natural trigger in this mock but can be injected via <code>POST /__mock__/faults</code> to test client retry/backoff paths.</blockquote>
+</section>
+
+<section>
+  <h2 class="slide-title">Error Codes Summary</h2>
+  <table class="endpoint-table">
+    <tr><th>HTTP</th><th>Codes</th><th>Category</th></tr>
+    <tr><td><strong class="http-401">401</strong></td><td><code>INVALID_TOKEN</code>, <code>OAUTH_SCOPE_MISMATCH</code>, <code>AUTHENTICATION_FAILURE</code></td><td>Authentication</td></tr>
+    <tr><td><strong class="http-403">403</strong></td><td><code>NO_PERMISSION</code>, <code>FEATURE_NOT_SUPPORTED</code></td><td>Authorization</td></tr>
+    <tr><td><strong class="http-400">400</strong></td><td><code>INVALID_MODULE</code>, <code>MANDATORY_NOT_FOUND</code>, <code>INVALID_DATA</code>, <code>INVALID_QUERY_PARAM</code>, <code>INVALID_QUERY</code>, <code>REQUIRED_PARAM_MISSING</code>, <code>DUPLICATE_DATA</code>, <code>LIMIT_EXCEEDED</code>, <code>PATTERN_NOT_MATCHED</code>, <code>INVALID_REQUEST_METHOD</code>, <code>LICENSE_LIMIT_EXCEEDED</code>, <code>UNABLE_TO_PARSE_DATA_TYPE</code></td><td>Validation</td></tr>
+    <tr><td><strong class="http-404">404</strong></td><td><code>RESOURCE_NOT_FOUND</code>, <code>INVALID_URL_PATTERN</code></td><td>Not Found</td></tr>
+    <tr><td><strong class="http-429">429</strong></td><td><code>API_LIMIT_EXCEEDED</code>, <code>TOO_MANY_REQUESTS</code></td><td>Rate Limited</td></tr>
+    <tr><td><strong class="http-500">500</strong></td><td><code>INTERNAL_ERROR</code></td><td>Server Error</td></tr>
+  </table>
+</section>
+
+<section>
+  <h2 class="slide-title">Rate Limits &mdash; How It Works</h2>
+  <p style="font-size: 0.8em;">Zoho CRM uses an <strong>API credit system</strong> to limit request volume:</p>
+  <div class="flow-container">
+    <div class="flow-row"><div class="flow-box flow-client">Client makes<br>CRM API call</div><span class="flow-arrow">&rarr;</span><div class="flow-box flow-zoho">Credit counter<br>decrements by 1</div></div>
+    <div class="flow-row"><span class="flow-arrow">&darr;</span><span class="flow-label">Credits remaining > 0</span></div>
+    <div class="flow-row"><div class="flow-box flow-client">Request succeeds<br><span class="badge badge-green">200/201/204</span></div></div>
+    <div class="flow-row"><span class="flow-arrow">&darr;</span><span class="flow-label">Credits exhausted</span></div>
+    <div class="flow-row"><div class="flow-box flow-zoho">Request rejected<br><span class="badge badge-red">429 TOO_MANY_REQUESTS</span></div></div>
+  </div>
+  <br>
+  <p style="font-size: 0.7em; color: #666;">Window resets after the configured duration, restoring all credits.</p>
+</section>
+
+<section>
+  <h2 class="slide-title">Rate Limits &mdash; Configuration</h2>
+  <table class="endpoint-table">
+    <tr><th>Setting</th><th>Default</th><th>Env Var</th></tr>
+    <tr><td>Credits per window</td><td><strong>5000</strong></td><td><code>MOCKZOHO_RATE_LIMIT_CREDITS</code></td></tr>
+    <tr><td>Window duration</td><td><strong>60 seconds</strong></td><td><code>MOCKZOHO_RATE_LIMIT_WINDOW_SECONDS</code></td></tr>
+    <tr><td>Cost per request</td><td><strong>1 credit</strong></td><td>&mdash;</td></tr>
+    <tr><td>Applies to</td><td>All <code>/crm/*</code> paths</td><td>&mdash;</td></tr>
+    <tr><td>Exempt paths</td><td><code>/__mock__</code>, <code>/docs</code>, <code>/health</code>, <code>/oauth</code></td><td>&mdash;</td></tr>
+  </table>
+  <br>
+  <blockquote style="font-size: 0.8em;">Real Zoho CRM allows <strong>5000 credits per minute</strong> on Enterprise edition. This mock mirrors that default.</blockquote>
+</section>
+
+<section>
+  <h2 class="slide-title">Rate Limits &mdash; Response Headers</h2>
+  <p style="font-size: 0.8em;">Every <code>/crm/</code> response includes these headers:</p>
+  <pre><code class="http">X-RATELIMIT-LIMIT: 5000
+X-RATELIMIT-REMAINING: 4998
+X-RATELIMIT-RESET: 1726310460</code></pre>
+  <br>
+  <table class="endpoint-table">
+    <tr><th>Header</th><th>Description</th></tr>
+    <tr><td><code>X-RATELIMIT-LIMIT</code></td><td>Total credits in the window (e.g. 5000)</td></tr>
+    <tr><td><code>X-RATELIMIT-REMAINING</code></td><td>Credits left before exhaustion</td></tr>
+    <tr><td><code>X-RATELIMIT-RESET</code></td><td>Unix timestamp when the window resets</td></tr>
+  </table>
+  <br>
+  <blockquote style="font-size: 0.8em;">Clients should read <code>X-RATELIMIT-REMAINING</code> to implement <strong>proactive backoff</strong> before hitting the limit.</blockquote>
+</section>
+
+<section>
+  <h2 class="slide-title">Rate Limits &mdash; The 429 Response</h2>
+  <p style="font-size: 0.8em;">When credits are exhausted:</p>
+  <pre><code class="http">HTTP/1.1 429 Too Many Requests
+
+X-RATELIMIT-LIMIT: 5000
+X-RATELIMIT-REMAINING: 0
+X-RATELIMIT-RESET: 1726310460</code></pre>
+  <pre><code class="json">{
+  "code": "TOO_MANY_REQUESTS",
+  "details": {
+    "limit": 5000,
+    "window_seconds": 60
+  },
+  "message": "Many requests fired than the allowed limit for a minute. Please check the header X-RATELIMIT-RESET for the reset time",
+  "status": "error"
+}</code></pre>
+</section>
+
+<section>
+  <h2 class="slide-title">Two Types of 429</h2>
+  <div class="two-col">
+    <div>
+      <h3><span class="badge badge-red">TOO_MANY_REQUESTS</span></h3>
+      <ul style="font-size: 0.8em;">
+        <li>Triggered by the <strong>real credit counter</strong></li>
+        <li>Automatic when credits hit 0</li>
+        <li>Message: "concurrency limit exceeded"</li>
+        <li>Test via <code>POST /__mock__/ratelimit {"remaining": 0}</code></li>
+      </ul>
+    </div>
+    <div>
+      <h3><span class="badge badge-red">API_LIMIT_EXCEEDED</span></h3>
+      <ul style="font-size: 0.8em;">
+        <li>Triggered by <strong>fault injection only</strong></li>
+        <li>Not auto-triggered by the counter</li>
+        <li>Message: "number of allowed API calls exceeded"</li>
+        <li>Test via <code>POST /__mock__/faults {"error_code": "API_LIMIT_EXCEEDED"}</code></li>
+      </ul>
+    </div>
+  </div>
+  <br>
+  <blockquote style="font-size: 0.8em;">Both return HTTP 429, but the <code>code</code> field differs. Clients should handle both.</blockquote>
+</section>
+
+<section>
+  <h2 class="slide-title">Rate Limits &mdash; Credit Window Lifecycle</h2>
+  <div style="font-size: 0.8em;">
+    <div style="margin-bottom: 15px;">
+      <strong>Full window</strong> &mdash; <span class="badge badge-green">5000 credits</span>
+      <div class="lifecycle-bar"><div class="lifecycle-segment lifecycle-active" style="width: 100%;">5000 remaining</div></div>
+    </div>
+    <div style="margin-bottom: 15px;">
+      <strong>Partially consumed</strong> &mdash; <span class="badge badge-orange">3000 used</span>
+      <div class="lifecycle-bar"><div class="lifecycle-segment lifecycle-exhausted" style="width: 60%;">3000 used</div><div class="lifecycle-segment lifecycle-active" style="width: 40%;">2000 left</div></div>
+    </div>
+    <div style="margin-bottom: 15px;">
+      <strong>Exhausted</strong> &mdash; <span class="badge badge-red">0 credits &rarr; 429</span>
+      <div class="lifecycle-bar"><div class="lifecycle-segment lifecycle-exhausted" style="width: 100%;">0 remaining</div></div>
+    </div>
+    <div style="margin-bottom: 15px;">
+      <strong>Window resets</strong> &mdash; <span class="badge badge-blue">credits restored</span>
+      <div class="lifecycle-bar"><div class="lifecycle-segment lifecycle-reset" style="width: 100%;">5000 restored</div></div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2 class="slide-title">Testing Rate Limits in the Mock</h2>
+  <table class="endpoint-table">
+    <tr><th>Endpoint</th><th>Method</th><th>Purpose</th></tr>
+    <tr><td><code>/__mock__/ratelimit</code></td><td><strong>POST</strong></td><td>Set <code>remaining</code> or <code>limit</code> credits</td></tr>
+    <tr><td><code>/__mock__/ratelimit</code></td><td><strong>GET</strong></td><td>View current credit state</td></tr>
+    <tr><td><code>/__mock__/ratelimit/reset</code></td><td><strong>POST</strong></td><td>Refill credits to full</td></tr>
+    <tr><td><code>/__mock__/faults</code></td><td><strong>POST</strong></td><td>Inject <code>API_LIMIT_EXCEEDED</code> fault</td></tr>
+    <tr><td><code>/__mock__/faults/clear</code></td><td><strong>POST</strong></td><td>Clear all fault injection</td></tr>
+  </table>
+  <br>
+  <pre><code class="bash"># Set remaining credits to 2
+curl -X POST http://localhost:8090/__mock__/ratelimit \
+  -H "Content-Type: application/json" \
+  -d '{"remaining": 2}'
+
+# Next 2 calls succeed, 3rd gets 429
+curl http://localhost:8090/crm/v3/Cases?fields=Subject \
+  -H "Authorization: Zoho-oauthtoken $TOKEN"
+# 200
+curl http://localhost:8090/crm/v3/Cases?fields=Subject \
+  -H "Authorization: Zoho-oauthtoken $TOKEN"
+# 200
+curl http://localhost:8090/crm/v3/Cases?fields=Subject \
+  -H "Authorization: Zoho-oauthtoken $TOKEN"
+# 429 TOO_MANY_REQUESTS</code></pre>
+</section>
+
+<section>
+  <h2 class="slide-title">Client Retry Strategy</h2>
+  <div class="flow-container">
+    <div class="flow-row"><div class="flow-box flow-client">Send request</div></div>
+    <div class="flow-row"><span class="flow-arrow">&darr;</span></div>
+    <div class="flow-row"><div class="flow-box flow-zoho">Check <code>X-RATELIMIT-REMAINING</code></div></div>
+    <div class="flow-row"><span class="flow-arrow">&darr;</span><span class="flow-label">If 0 &rarr; got 429</span></div>
+    <div class="flow-row"><div class="flow-box flow-client">Read <code>X-RATELIMIT-RESET</code></div></div>
+    <div class="flow-row"><span class="flow-arrow">&darr;</span><span class="flow-label">Wait until reset time</span></div>
+    <div class="flow-row"><div class="flow-box flow-client">Retry with exponential backoff</div></div>
+  </div>
+  <br>
+  <ul style="font-size: 0.75em;">
+    <li>Read <code>X-RATELIMIT-REMAINING</code> on every response</li>
+    <li>If remaining is low, slow down proactively</li>
+    <li>On 429, wait until <code>X-RATELIMIT-RESET</code> timestamp</li>
+    <li>Use exponential backoff with jitter for <code>500</code> errors</li>
+    <li>For <code>401 INVALID_TOKEN</code>, refresh the access token then retry</li>
+  </ul>
+</section>
+
+<section>
+  <h2 class="slide-title">Fault Injection &mdash; Testing Error Paths</h2>
+  <p style="font-size: 0.8em;">The mock lets you force any error code on demand:</p>
+  <pre><code class="bash"># Force all CRM calls to return 500
+curl -X POST http://localhost:8090/__mock__/faults \
+  -H "Content-Type: application/json" \
+  -d '{"error_code": "INTERNAL_ERROR"}'
+
+# Fail 30% of requests with INVALID_TOKEN
+curl -X POST http://localhost:8090/__mock__/faults \
+  -H "Content-Type: application/json" \
+  -d '{"error_code": "INVALID_TOKEN", "error_rate": 0.3}'
+
+# Inject 500ms latency on Cases endpoints only
+curl -X POST http://localhost:8090/__mock__/faults \
+  -H "Content-Type: application/json" \
+  -d '{"latency_ms": 500, "path_contains": "/Cases"}'
+
+# Fail next 5 requests then recover
+curl -X POST http://localhost:8090/__mock__/faults \
+  -H "Content-Type: application/json" \
+  -d '{"error_code": "INTERNAL_ERROR", "remaining_failures": 5}'
+
+# Clear all faults
+curl -X POST http://localhost:8090/__mock__/faults/clear</code></pre>
+</section>
+
+<section>
+  <h2 class="slide-title">Summary</h2>
+  <ul>
+    <li><strong>22 error codes</strong> across 6 HTTP status codes (400, 401, 403, 404, 429, 500)</li>
+    <li>All errors use the same envelope: <code>{"code", "details", "message", "status"}</code></li>
+    <li>OAuth errors are different: <strong>HTTP 200</strong> with <code>{"error": "..."}</code></li>
+    <li>Rate limit: <strong>5000 credits per 60s window</strong>, 1 credit per CRM call</li>
+    <li>Every CRM response includes <code>X-RATELIMIT-*</code> headers</li>
+    <li>Two 429 codes: <code>TOO_MANY_REQUESTS</code> (auto) vs <code>API_LIMIT_EXCEEDED</code> (injected)</li>
+    <li>Use <code>/__mock__/faults</code> to inject any error code for testing</li>
+    <li>Use <code>/__mock__/ratelimit</code> to control credit state for testing</li>
+    <li>Clients should implement backoff using <code>X-RATELIMIT-RESET</code></li>
+  </ul>
+  <br>
+  <blockquote style="font-size: 0.8em;">For production: read <code>X-RATELIMIT-REMAINING</code> on every response and back off proactively before hitting 429.</blockquote>
+</section>
+
+</div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/highlight/highlight.js"></script>
+<script>
+Reveal.initialize({
+  hash: false,
+  slideNumber: 'c/t',
+  margin: 0.04,
+  transition: 'slide',
+  embedded: true,
+  plugins: [RevealHighlight]
+});
+</script>
+</body>
+</html>

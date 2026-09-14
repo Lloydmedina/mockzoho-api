@@ -14,6 +14,7 @@ from app.api.deps import (
     RequiredFieldsDep,
     SessionDep,
     parse_id_list,
+    validate_record_id,
 )
 from app.auth.dependency import require_token
 from app.config import settings
@@ -139,11 +140,18 @@ def list_records(
     fields: RequiredFieldsDep,
     if_modified_since: ModifiedSinceDep,
     sort_by: Annotated[str, Query(description="Field API name to sort on (mock extension, not in real Zoho)")] = "Modified_Time",
-    sort_order: Annotated[str, Query(pattern="^(asc|desc)$")] = "desc",
+    sort_order: Annotated[str, Query(description="Sort order: asc or desc")] = "desc",
     ids: Annotated[str | None, Query(description="Comma separated record ids to filter on")] = None,
 ) -> Response:
     page, per_page = pagination
     wanted = set(parse_id_list(ids))
+
+    if sort_order not in ("asc", "desc"):
+        raise ZohoAPIError(
+            "PATTERN_NOT_MATCHED",
+            "Please check whether the input values are correct",
+            {"api_name": "sort_order", "given": sort_order},
+        )
 
     payloads = query(
         session,
@@ -177,6 +185,7 @@ def get_record(
     session: SessionDep,
     fields: FieldsDep,
 ) -> Response:
+    validate_record_id(record_id)
     record = get(session, module.api_name, record_id)
     if record is None:
         raise ZohoAPIError("RESOURCE_NOT_FOUND", "the record does not exist", {"id": record_id})
@@ -268,6 +277,7 @@ def update_record(
     session: SessionDep,
     payload: Annotated[RecordsPayload, Body(openapi_examples=UPDATE_EXAMPLES)],
 ) -> JSONResponse:
+    validate_record_id(record_id)
     _guard_batch_size(payload.data)
     record = get(session, module.api_name, record_id)
     if record is None:
@@ -375,6 +385,7 @@ def delete_records(
 
 @router.delete("/{module}/{record_id}", summary="Delete a single record")
 def delete_record(module: ModuleDep, record_id: str, session: SessionDep) -> JSONResponse:
+    validate_record_id(record_id)
     if not delete(session, module.api_name, record_id):
         raise ZohoAPIError("RESOURCE_NOT_FOUND", "the record does not exist", {"id": record_id})
     session.commit()

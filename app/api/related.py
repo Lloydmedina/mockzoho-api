@@ -3,7 +3,7 @@
 from fastapi import APIRouter, Depends, Response
 from fastapi.responses import JSONResponse
 
-from app.api.deps import FieldsDep, ModuleDep, PaginationDep, SessionDep
+from app.api.deps import FieldsDep, ModuleDep, PaginationDep, SessionDep, validate_record_id
 from app.auth.dependency import require_token
 from app.repository import get, paginate, project, query
 from app.schemas.zoho import ZohoAPIError, record_list_body
@@ -28,6 +28,7 @@ def get_related_records(
     pagination: PaginationDep,
     fields: FieldsDep,
 ) -> Response:
+    validate_record_id(record_id)
     parent = get(session, module.api_name, record_id)
     if parent is None:
         return Response(status_code=204)

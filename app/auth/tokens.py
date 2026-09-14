@@ -25,6 +25,7 @@ class IssuedToken:
 @dataclass
 class TokenStore:
     tokens: dict[str, IssuedToken] = field(default_factory=dict)
+    refresh_to_access: dict[str, set[str]] = field(default_factory=dict)
     issued_count: int = 0
 
     def issue(self, scope: str, ttl: int | None = None) -> IssuedToken:
@@ -38,6 +39,10 @@ class TokenStore:
         self.issued_count += 1
         return token
 
+    def link_refresh_token(self, refresh_token: str, access_token: str) -> None:
+        """Associate an access token with a refresh token for cascade revocation."""
+        self.refresh_to_access.setdefault(refresh_token, set()).add(access_token)
+
     def get(self, access_token: str) -> IssuedToken | None:
         return self.tokens.get(access_token)
 
@@ -45,8 +50,18 @@ class TokenStore:
         token = self.tokens.get(access_token)
         return token is not None and not token.expired
 
-    def revoke(self, access_token: str) -> bool:
-        return self.tokens.pop(access_token, None) is not None
+    def revoke(self, candidate: str) -> int:
+        """Revoke a token. If it's a refresh token, cascade-revoke all derived access tokens.
+        Returns the number of tokens revoked."""
+        count = 0
+        if candidate in self.refresh_to_access:
+            for access_token in self.refresh_to_access[candidate]:
+                if self.tokens.pop(access_token, None) is not None:
+                    count += 1
+            self.refresh_to_access.pop(candidate, None)
+        if self.tokens.pop(candidate, None) is not None:
+            count += 1
+        return count
 
     def expire_all(self) -> int:
         now = time.time()
@@ -59,6 +74,7 @@ class TokenStore:
 
     def clear(self) -> None:
         self.tokens.clear()
+        self.refresh_to_access.clear()
         self.issued_count = 0
 
 

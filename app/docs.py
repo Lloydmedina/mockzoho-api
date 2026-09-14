@@ -8,14 +8,24 @@ opened.
 from fastapi.responses import HTMLResponse
 
 _DRAWER_CSS = """
+  #errors-drawer-btn {
+    position: fixed; top: 62px; right: 16px; z-index: 100;
+    padding: 8px 18px; border: none; border-radius: 8px; cursor: pointer;
+    font-weight: 700; font-size: 14px; font-family: system-ui, sans-serif;
+    background: green; color: white; box-shadow: 0 2px 8px rgba(46,158,79,0.3);
+    transition: all 0.2s;
+  }
+  #errors-drawer-btn:hover { background: #3abf6e; transform: translateY(-1px); }
+  #errors-drawer-btn.active { background: #3abf6e; }
   #oauth-drawer-btn {
     position: fixed; top: 12px; right: 16px; z-index: 100;
     padding: 8px 18px; border: none; border-radius: 8px; cursor: pointer;
     font-weight: 700; font-size: 14px; font-family: system-ui, sans-serif;
-    background: green; color: white; box-shadow: 0 2px 8px rgba(228,37,39,0.3);
+    background: green; color: white; box-shadow: 0 2px 8px rgba(46,158,79,0.3);
     transition: all 0.2s;
   }
-  #oauth-drawer-btn:hover { background: #c41e1e; transform: translateY(-1px); }
+  #oauth-drawer-btn:hover { background: #3abf6e; transform: translateY(-1px); }
+  #oauth-drawer-btn.active { background: #3abf6e; }
   #drawer-backdrop {
     position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 9998;
     opacity: 0; pointer-events: none; transition: opacity 0.3s;
@@ -53,27 +63,27 @@ _DRAWER_CSS = """
 """
 
 _DRAWER_JS = """
-  var drawerLoaded = false;
-  function openDrawer() {
+  var drawerLoadedUrl = null;
+  function openDrawer(url, title, btnId) {
     document.getElementById('oauth-drawer').classList.add('open');
     document.getElementById('drawer-backdrop').classList.add('open');
-    if (!drawerLoaded) {
+    document.getElementById('drawer-title').textContent = title;
+    document.getElementById('errors-drawer-btn').classList.toggle('active', btnId === 'errors-drawer-btn');
+    document.getElementById('oauth-drawer-btn').classList.toggle('active', btnId === 'oauth-drawer-btn');
+    if (drawerLoadedUrl !== url) {
       var container = document.getElementById('drawer-content');
       container.innerHTML = '<p style="padding:20px;font-family:sans-serif;">Loading presentation...</p>';
-      fetch('/presentations/authentication.html')
+      fetch(url)
         .then(function(r) { return r.text(); })
         .then(function(html) {
           var doc = new DOMParser().parseFromString(html, 'text/html');
-          container.innerHTML = ''; // clear the "Loading presentation..." placeholder
-          // Copy styles into the container
+          container.innerHTML = '';
           doc.querySelectorAll('style, link[rel="stylesheet"]').forEach(function(node) {
             container.appendChild(node.cloneNode(true));
           });
-          // Copy body content (non-script)
           doc.body.querySelectorAll(':scope > *:not(script)').forEach(function(node) {
             container.appendChild(node);
           });
-          // Re-create script tags so they actually execute
           var scripts = Array.from(doc.body.querySelectorAll('script'));
           var externalScripts = scripts.filter(function(s) { return s.src; });
           var inlineScripts = scripts.filter(function(s) { return !s.src; });
@@ -94,7 +104,7 @@ _DRAWER_JS = """
             container.appendChild(newScript);
           }
           loadNext();
-          drawerLoaded = true;
+          drawerLoadedUrl = url;
         })
         .catch(function(e) { container.innerHTML = '<p style="padding:20px;font-family:sans-serif;">Failed to load presentation: ' + e + '</p>'; });
     }
@@ -102,6 +112,8 @@ _DRAWER_JS = """
   function closeDrawer() {
     document.getElementById('oauth-drawer').classList.remove('open');
     document.getElementById('drawer-backdrop').classList.remove('open');
+    document.getElementById('errors-drawer-btn').classList.remove('active');
+    document.getElementById('oauth-drawer-btn').classList.remove('active');
   }
   function toggleFullscreen() {
     var el = document.getElementById('oauth-drawer');
@@ -114,8 +126,6 @@ _DRAWER_JS = """
   document.addEventListener('fullscreenchange', function() {
     var btn = document.getElementById('drawer-fullscreen');
     if (btn) { btn.textContent = document.fullscreenElement ? '\u29c9' : '\u26f6'; }
-    // Reveal sizes itself off its container; give the layout a moment to
-    // settle after the fullscreen transition, then ask it to recalculate.
     setTimeout(function() {
       if (window.Reveal && typeof window.Reveal.layout === 'function') {
         window.Reveal.layout();
@@ -144,14 +154,15 @@ def get_docs_html(openapi_url: str, title: str) -> HTMLResponse:
   </style>
 </head>
 <body>
-  <button id="oauth-drawer-btn" onclick="openDrawer()">OAuth Presentation</button>
+  <button id="errors-drawer-btn" onclick="openDrawer('/presentations/errors.html', 'Zoho CRM Error Codes & Rate Limits', 'errors-drawer-btn')">Errors & Rate Limits</button>
+  <button id="oauth-drawer-btn" onclick="openDrawer('/presentations/authentication.html', 'Zoho OAuth 2.0 & Token Lifecycle', 'oauth-drawer-btn')">OAuth Presentation</button>
 
   <div id="swagger-ui"></div>
 
   <div id="drawer-backdrop" onclick="closeDrawer()"></div>
   <div id="oauth-drawer">
     <div id="drawer-header">
-      <h2>Zoho OAuth 2.0 & Token Lifecycle</h2>
+      <h2 id="drawer-title">Zoho OAuth 2.0 & Token Lifecycle</h2>
       <div>
         <button id="drawer-fullscreen" onclick="toggleFullscreen()" title="Toggle fullscreen">&#x26f6;</button>
         <button id="drawer-close" onclick="closeDrawer()">&times;</button>

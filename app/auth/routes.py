@@ -82,6 +82,9 @@ async def issue_token(request: Request) -> JSONResponse:
     scope = params.get("scope") or DEFAULT_SCOPE
     token = token_store.issue(scope)
 
+    if grant_type == "refresh_token":
+        token_store.link_refresh_token(refresh_token, token.access_token)
+
     payload: dict[str, Any] = {
         "access_token": token.access_token,
         "scope": token.scope,
@@ -90,7 +93,9 @@ async def issue_token(request: Request) -> JSONResponse:
         "expires_in": token.expires_in,
     }
     if grant_type == "authorization_code":
-        payload["refresh_token"] = f"1000.{token.access_token.split('.')[1]}.refresh"
+        refresh_token_value = f"1000.{token.access_token.split('.')[1]}.refresh"
+        token_store.link_refresh_token(refresh_token_value, token.access_token)
+        payload["refresh_token"] = refresh_token_value
     return JSONResponse(status_code=200, content=payload)
 
 

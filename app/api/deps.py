@@ -3,6 +3,8 @@ from typing import Annotated
 from fastapi import Depends, Header, Path, Query
 from sqlalchemy.orm import Session
 
+from app.auth.dependency import require_token
+from app.auth.tokens import token_store
 from app.config import settings
 from app.db import get_session
 from app.modules.registry import MODULE_NAMES, ModuleSpec, resolve_module
@@ -11,8 +13,27 @@ from app.schemas.zoho import ZohoAPIError
 MODULE_DOC = f"Zoho module API name. Available in this mock: {', '.join(MODULE_NAMES)}"
 
 
+def _scope_covers_module(scope: str, module_api_name: str) -> bool:
+    """Check if a Zoho OAuth scope string grants access to the given module.
+
+    Scope format: comma-separated tokens like `ZohoCRM.modules.ALL` or
+    `ZohoCRM.modules.cases.READ`. `ZohoCRM.modules.ALL` covers all modules.
+    """
+    module_lower = module_api_name.lower()
+    for token in scope.split(","):
+        token = token.strip().lower()
+        if token == "zohocrm.modules.all":
+            return True
+        if token == f"zohocrm.modules.{module_lower}":
+            return True
+        if token.startswith(f"zohocrm.modules.{module_lower}."):
+            return True
+    return False
+
+
 def module_spec(
     module: Annotated[str, Path(description=MODULE_DOC, examples=["Cases"])],
+    access_token: Annotated[str, Depends(require_token)],
 ) -> ModuleSpec:
     spec = resolve_module(module)
     if spec is None:
@@ -20,6 +41,13 @@ def module_spec(
             "INVALID_MODULE",
             "the module name given seems to be invalid",
             {"module": module, "available_modules": list(MODULE_NAMES)},
+        )
+    issued = token_store.get(access_token)
+    if issued and not _scope_covers_module(issued.scope, spec.api_name):
+        raise ZohoAPIError(
+            "OAUTH_SCOPE_MISMATCH",
+            "invalid oauth scope to access this URL",
+            {"scope": issued.scope, "module": spec.api_name},
         )
     return spec
 
@@ -93,3 +121,14 @@ def parse_id_list(raw: str | None) -> list[str]:
     if not raw:
         return []
     return [part.strip() for part in raw.split(",") if part.strip()]
+
+
+def validate_record_id(record_id: str) -> str:
+    """Zoho expects 19-digit numeric record IDs. Non-numeric IDs get UNABLE_TO_PARSE_DATA_TYPE."""
+    if not record_id.isdigit():
+        raise ZohoAPIError(
+            "UNABLE_TO_PARSE_DATA_TYPE",
+            "either the request body or parameters is in wrong format",
+            {"param": "record_id", "given": record_id},
+        )
+    return record_id
