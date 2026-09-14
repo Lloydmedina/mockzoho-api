@@ -6,9 +6,10 @@ from typing import Annotated
 from fastapi import APIRouter, Body, Depends, Response
 from fastapi.responses import JSONResponse
 
-from app.api.deps import SessionDep
+from app.api.deps import SessionDep, _scope_covers_module
 from app.api.filters import parse_coql_where
 from app.auth.dependency import require_token
+from app.auth.tokens import token_store
 from app.modules.registry import resolve_module
 from app.repository import project, query
 from app.schemas.zoho import COQLPayload, ZohoAPIError
@@ -83,7 +84,7 @@ def _parse_limit_clause(raw: str | None) -> tuple[int, int]:
         "[GROUP BY <fields>] [ORDER BY <field> asc|desc] [LIMIT ...]`.\n\n"
         "LIMIT supports two forms: `LIMIT n` (simple) or `LIMIT offset, limit` (Zoho pagination syntax). "
         "Max LIMIT is 200, max 50 fields in SELECT.\n\n"
-        "WHERE supports `= != > >= < <= like, not like, in, not in, is null, is not null`, "
+        "WHERE supports `= != > >= < <= like, not like, in, not in, between, is null, is not null`, "
         "grouped with `and` / `or` and parentheses.\n\n"
         "**Returns HTTP 204 when the query matches nothing.**"
     ),
@@ -91,6 +92,7 @@ def _parse_limit_clause(raw: str | None) -> tuple[int, int]:
 def run_coql(
     session: SessionDep,
     payload: Annotated[COQLPayload, Body(openapi_examples=COQL_EXAMPLES)],
+    access_token: Annotated[str, Depends(require_token)],
 ) -> Response:
     match = QUERY_PATTERN.match(payload.select_query.strip())
     if not match:
@@ -106,6 +108,14 @@ def run_coql(
             "INVALID_MODULE",
             "the module name given seems to be invalid",
             {"module": match.group("module")},
+        )
+
+    issued = token_store.get(access_token)
+    if issued and not _scope_covers_module(issued.scope, module.api_name):
+        raise ZohoAPIError(
+            "OAUTH_SCOPE_MISMATCH",
+            "invalid oauth scope to access this URL",
+            {"scope": issued.scope, "module": module.api_name},
         )
 
     raw_fields = [f.strip() for f in match.group("fields").split(",") if f.strip()]

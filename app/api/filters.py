@@ -63,6 +63,18 @@ def _compare(left: Any, op: str, right: Any) -> bool:
     if op == "in":
         values = right if isinstance(right, (list, tuple)) else [right]
         return any(_eq(left, item) for item in values)
+    if op == "not_in":
+        values = right if isinstance(right, (list, tuple)) else [right]
+        return not any(_eq(left, item) for item in values)
+    if op == "between":
+        values = right if isinstance(right, (list, tuple)) else [right]
+        if len(values) != 2:
+            raise ZohoAPIError("INVALID_QUERY_PARAM", "between requires exactly 2 values", {"operator": "between"})
+        ln = _as_number(left)
+        if ln is not None:
+            lo, hi = _as_number(values[0]), _as_number(values[1])
+            return lo is not None and hi is not None and lo <= ln <= hi
+        return str(values[0]) <= str(left or "") <= str(values[1])
     if op == "is null":
         return left in (None, "")
     if op == "is not null":
@@ -203,13 +215,17 @@ def parse_criteria(criteria: str) -> Predicate:
     field, op, value = match.group(1), match.group(2).lower(), match.group(3)
     if op == "in":
         parsed: Any = [v.strip() for v in value.split(",") if v.strip()]
+    elif op == "not_in":
+        parsed: Any = [v.strip() for v in value.split(",") if v.strip()]
+    elif op == "between":
+        parsed: Any = [v.strip() for v in value.split(",") if v.strip()]
     else:
         parsed = value
     return _leaf_predicate(field, op, parsed)
 
 
 COQL_LEAF = re.compile(
-    r"^\s*([\w.]+)\s*(=|!=|>=|<=|>|<|not\s+like|like|not\s+in|in|is\s+not\s+null|is\s+null)\s*(.*?)\s*$",
+    r"^\s*([\w.]+)\s*(=|!=|>=|<=|>|<|not\s+like|like|not\s+in|in|is\s+not\s+null|is\s+null|between)\s*(.*?)\s*$",
     re.IGNORECASE,
 )
 
@@ -236,8 +252,19 @@ def _parse_coql_value(raw: str) -> Any:
         return raw
 
 
+def _preprocess_coql_between(clause: str) -> str:
+    """Convert COQL `between X and Y` to `between X, Y` so the `and` isn't
+    treated as a logical operator by _split_top_level."""
+    return re.sub(
+        r"\bbetween\s+('[^']*'|\"[^\"]*\"|[\w.]+)\s+and\s+('[^']*'|\"[^\"]*\"|[\w.]+)",
+        r"between \1, \2",
+        clause,
+        flags=re.IGNORECASE,
+    )
+
+
 def parse_coql_where(clause: str) -> Predicate:
-    expr = _strip_wrapping_parens(clause)
+    expr = _preprocess_coql_between(_strip_wrapping_parens(clause))
     if not expr:
         return lambda _payload: True
 
@@ -266,4 +293,7 @@ def parse_coql_where(clause: str) -> Predicate:
         values = value if isinstance(value, list) else [value]
         leaf = _leaf_predicate(field, "in", values)
         return lambda payload: not leaf(payload)
+    if op == "between":
+        values = value if isinstance(value, list) else [value]
+        return _leaf_predicate(field, "between", values)
     return _leaf_predicate(field, op, value)

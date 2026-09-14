@@ -90,6 +90,13 @@ All errors use the Zoho envelope: `{"code": "...", "details": {...}, "message": 
 | `API_LIMIT_EXCEEDED` | 429 | API credit exhaustion (injectable via `/__mock__/faults`) |
 | `TOO_MANY_REQUESTS` | 429 | Rate limit hit — credits exhausted for the window |
 | `INTERNAL_ERROR` | 500 | Internal server error (injectable via `/__mock__/faults`) |
+| `RECORD_LOCKED` | 400 | Record locked by another process (injectable) |
+| `NOT_APPROVED` | 400 | Record not approved (injectable) |
+| `MULTIPLE_OR_MULTI_ERRORS` | 400 | Multiple errors in one request (injectable) |
+| `FILE_TOO_LARGE` | 413 | File upload exceeds limit (injectable) |
+| `AUTHORIZATION_FAILED` | 401 | Authorization failed (injectable) |
+| `SYNTAX_ERROR` | 400 | COQL syntax error (injectable) |
+| `DEPENDENT_FIELD_MISSING` | 400 | Dependent field not provided (injectable) |
 
 **OAuth endpoint quirk:** `POST /oauth/v2/token` returns **HTTP 200** with `{"error": "invalid_client"}` on credential failures — not the CRM error envelope above.
 

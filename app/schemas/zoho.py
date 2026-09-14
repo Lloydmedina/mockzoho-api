@@ -34,6 +34,13 @@ ERROR_CATALOG: dict[str, tuple[int, str]] = {
     "API_LIMIT_EXCEEDED": (429, "number of allowed API calls exceeded"),
     "TOO_MANY_REQUESTS": (429, "concurrency limit exceeded"),
     "INTERNAL_ERROR": (500, "internal server error"),
+    "RECORD_LOCKED": (400, "record is locked by another process"),
+    "NOT_APPROVED": (400, "record is not approved"),
+    "MULTIPLE_OR_MULTI_ERRORS": (400, "multiple errors occurred in the request"),
+    "FILE_TOO_LARGE": (413, "file size exceeds the allowed limit"),
+    "AUTHORIZATION_FAILED": (401, "authorization failed"),
+    "SYNTAX_ERROR": (400, "syntax error in the query"),
+    "DEPENDENT_FIELD_MISSING": (400, "a dependent field is missing"),
 }
 
 

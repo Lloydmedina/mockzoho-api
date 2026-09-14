@@ -50,8 +50,8 @@ def _any_field_predicate(fields: tuple[str, ...], needle: str) -> Predicate:
         "Exactly one of `criteria`, `email`, `phone` or `word` is required.\n\n"
         "Criteria syntax matches Zoho: `(Status:equals:Open)` or "
         "`((Status:equals:Open)and(Priority:equals:High))`. Supported operators: "
-        "`equals`, `not_equal`, `starts_with`, `ends_with`, `contains`, `in`, "
-        "`greater_than`, `greater_equal`, `less_than`, `less_equal`.\n\n"
+        "`equals`, `not_equal`, `starts_with`, `ends_with`, `contains`, `in`, `not_in`, "
+        "`greater_than`, `greater_equal`, `less_than`, `less_equal`, `between`.\n\n"
         "**Returns HTTP 204 when nothing matches.**"
     ),
 )

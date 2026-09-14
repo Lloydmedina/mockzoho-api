@@ -257,3 +257,88 @@ def test_oauth_scope_all_covers_everything(client, auth_headers):
         # Should not get OAUTH_SCOPE_MISMATCH (may get 200 or 204)
         if response.status_code == 401:
             assert response.json()["code"] != "OAUTH_SCOPE_MISMATCH"
+
+
+def test_search_between_operator(client, auth_headers):
+    """The `between` operator should work in search criteria."""
+    response = client.get(
+        "/crm/v3/Cases/search?fields=Subject,Status&criteria=(Status:between:Open,Closed)",
+        headers=auth_headers,
+    )
+    # Should not get an error about unsupported operator
+    if response.status_code == 400:
+        assert response.json()["code"] != "INVALID_QUERY_PARAM"
+
+
+def test_search_not_in_operator(client, auth_headers):
+    """The `not_in` operator should work in search criteria."""
+    response = client.get(
+        "/crm/v3/Cases/search?fields=Subject,Status&criteria=(Status:not_in:Closed)",
+        headers=auth_headers,
+    )
+    # Should not get an error about unsupported operator
+    if response.status_code == 400:
+        assert response.json()["code"] != "INVALID_QUERY_PARAM"
+
+
+def test_coql_between_operator(client, auth_headers):
+    """The `between` operator should work in COQL WHERE."""
+    response = client.post(
+        "/crm/v3/coql",
+        headers=auth_headers,
+        json={"select_query": "select Subject, Status from Cases where Status between 'Open' and 'Closed' limit 10"},
+    )
+    # Should not get INVALID_QUERY about unsupported operator
+    if response.status_code == 400:
+        assert response.json()["code"] != "INVALID_QUERY"
+
+
+def test_coql_scope_mismatch(client):
+    """COQL should enforce scope — a Products-only token querying Cases gets OAUTH_SCOPE_MISMATCH."""
+    response = client.post(
+        "/oauth/v2/token",
+        data={
+            "grant_type": "client_credentials",
+            "client_id": "test_client",
+            "client_secret": "test_secret",
+            "scope": "ZohoCRM.modules.products.READ",
+            "soid": "test_org_id",
+        },
+    )
+    access_token = response.json()["access_token"]
+    headers = {"Authorization": f"Zoho-oauthtoken {access_token}"}
+
+    # Querying Cases via COQL should fail with OAUTH_SCOPE_MISMATCH
+    coql_response = client.post(
+        "/crm/v3/coql",
+        headers=headers,
+        json={"select_query": "select Subject from Cases limit 10"},
+    )
+    assert coql_response.status_code == 401
+    assert coql_response.json()["code"] == "OAUTH_SCOPE_MISMATCH"
+
+    # Querying Products via COQL should work
+    products_response = client.post(
+        "/crm/v3/coql",
+        headers=headers,
+        json={"select_query": "select Product_Name from Products limit 10"},
+    )
+    assert products_response.status_code in (200, 204)
+
+
+def test_missing_error_codes_are_injectable(client, auth_headers):
+    """All 7 newly added error codes should be injectable via /__mock__/faults."""
+    for code, expected_status in [
+        ("RECORD_LOCKED", 400),
+        ("NOT_APPROVED", 400),
+        ("MULTIPLE_OR_MULTI_ERRORS", 400),
+        ("FILE_TOO_LARGE", 413),
+        ("AUTHORIZATION_FAILED", 401),
+        ("SYNTAX_ERROR", 400),
+        ("DEPENDENT_FIELD_MISSING", 400),
+    ]:
+        client.post("/__mock__/faults", json={"error_code": code})
+        response = client.get("/crm/v3/Cases?fields=Subject", headers=auth_headers)
+        assert response.status_code == expected_status, f"{code} should return {expected_status}"
+        assert response.json()["code"] == code
+        client.post("/__mock__/faults/clear")
