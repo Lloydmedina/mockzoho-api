@@ -28,8 +28,9 @@ A high-fidelity mock of the **Zoho CRM v3 REST API** for local development and t
 
 ### Getting started
 
-1. **Get a token** — `POST /oauth/v2/token` with `grant_type=refresh_token`,
-   `client_id`, `client_secret`, `refresh_token` (any values work unless
+1. **Get a token** — click **Try it out** on `POST /oauth/v2/token` below and fill in
+   `client_id=1000.MOCKCLIENTID`, `client_secret=mock_client_secret`,
+   `refresh_token=1000.mockrefreshtoken.refresh` (any values work unless
    `MOCKZOHO_EXPECTED_*` env vars are set).
 
 2. **Authorize** — click the **Authorize** button above and paste

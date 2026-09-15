@@ -4,9 +4,9 @@ Mirrors accounts.zoho.com behaviour, including the quirk that credential
 failures come back as HTTP 200 with an `{"error": "..."}` body.
 """
 
-from typing import Any
+from typing import Annotated, Any
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Query, Request
 from fastapi.responses import JSONResponse
 
 from app.auth.tokens import token_store
@@ -15,6 +15,9 @@ from app.config import settings
 router = APIRouter(tags=["OAuth"])
 
 DEFAULT_SCOPE = "ZohoCRM.modules.ALL,ZohoCRM.settings.ALL"
+TEST_CLIENT_ID = "1000.MOCKCLIENTID"
+TEST_CLIENT_SECRET = "mock_client_secret"
+TEST_REFRESH_TOKEN = "1000.mockrefreshtoken.refresh"
 SUPPORTED_GRANTS = {"refresh_token", "client_credentials", "authorization_code"}
 
 
@@ -47,10 +50,49 @@ def _oauth_error(error: str) -> JSONResponse:
         "string, form-encoded body, or JSON.\n\n"
         "Credentials are accepted as-is unless `MOCKZOHO_EXPECTED_CLIENT_ID` / "
         "`MOCKZOHO_EXPECTED_CLIENT_SECRET` / `MOCKZOHO_EXPECTED_REFRESH_TOKEN` are configured. "
-        "Failures return HTTP 200 with an `{\"error\": ...}` body, exactly like Zoho."
+        "Failures return HTTP 200 with an `{\"error\": ...}` body, exactly like Zoho.\n\n"
+        f"For local testing use `client_id={TEST_CLIENT_ID}`, `client_secret={TEST_CLIENT_SECRET}`, "
+        f"`refresh_token={TEST_REFRESH_TOKEN}` (any values work unless enforcement is configured)."
     ),
 )
-async def issue_token(request: Request) -> JSONResponse:
+async def issue_token(
+    request: Request,
+    grant_type: Annotated[
+        str | None,
+        Query(
+            description="Grant type: `refresh_token`, `client_credentials`, or `authorization_code`",
+            example="refresh_token",
+        ),
+    ] = None,
+    client_id: Annotated[
+        str | None,
+        Query(description="Client ID from the Zoho API console", example=TEST_CLIENT_ID),
+    ] = None,
+    client_secret: Annotated[
+        str | None,
+        Query(description="Client secret from the Zoho API console", example=TEST_CLIENT_SECRET),
+    ] = None,
+    refresh_token: Annotated[
+        str | None,
+        Query(description="Refresh token (required for `grant_type=refresh_token`)", example=TEST_REFRESH_TOKEN),
+    ] = None,
+    code: Annotated[
+        str | None,
+        Query(description="Authorization code (required for `grant_type=authorization_code`)"),
+    ] = None,
+    redirect_uri: Annotated[
+        str | None,
+        Query(description="Callback URL registered in the Zoho API console (required for `grant_type=authorization_code`)"),
+    ] = None,
+    soid: Annotated[
+        str | None,
+        Query(description="Zoho organization ID (required for `grant_type=client_credentials`)"),
+    ] = None,
+    scope: Annotated[
+        str | None,
+        Query(description="Comma-separated scopes for the issued token", example=DEFAULT_SCOPE),
+    ] = None,
+) -> JSONResponse:
     params = await _merged_params(request)
     grant_type = params.get("grant_type", "refresh_token")
 
@@ -64,7 +106,7 @@ async def issue_token(request: Request) -> JSONResponse:
     if settings.expected_client_id and client_id != settings.expected_client_id:
         return _oauth_error("invalid_client")
     if settings.expected_client_secret and client_secret != settings.expected_client_secret:
-        return _oauth_error("invalid_client_secret")
+        return _oauth_error("invalid_client")
 
     if grant_type == "refresh_token":
         refresh_token = params.get("refresh_token")
@@ -87,11 +129,12 @@ async def issue_token(request: Request) -> JSONResponse:
 
     payload: dict[str, Any] = {
         "access_token": token.access_token,
-        "scope": token.scope,
         "api_domain": settings.api_domain,
         "token_type": "Bearer",
         "expires_in": token.expires_in,
     }
+    if grant_type == "client_credentials":
+        payload["scope"] = token.scope
     if grant_type == "authorization_code":
         refresh_token_value = f"1000.{token.access_token.split('.')[1]}.refresh"
         token_store.link_refresh_token(refresh_token_value, token.access_token)
@@ -104,7 +147,18 @@ async def issue_token(request: Request) -> JSONResponse:
     summary="Revoke a refresh or access token",
     description="Returns `{\"status\": \"success\"}` whether or not the token was known, like Zoho.",
 )
-async def revoke_token(request: Request) -> JSONResponse:
+@router.post(
+    "/oauth/v2/revoke/token",
+    summary="Revoke a refresh or access token (developer docs path)",
+    description="Alias for `/oauth/v2/token/revoke`. The newer Zoho developer docs use this path.",
+)
+async def revoke_token(
+    request: Request,
+    token: Annotated[
+        str | None,
+        Query(description="Access or refresh token to revoke"),
+    ] = None,
+) -> JSONResponse:
     params = await _merged_params(request)
     candidate = params.get("token") or params.get("refresh_token") or ""
     token_store.revoke(candidate)

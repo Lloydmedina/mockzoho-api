@@ -19,7 +19,7 @@ def test_refresh_token_grant(client):
     assert body["token_type"] == "Bearer"
     assert body["expires_in"] > 0
     assert "api_domain" in body
-    assert "scope" in body
+    assert "scope" not in body  # Zoho omits scope for refresh_token grant
 
 
 def test_client_credentials_grant(client):
@@ -34,7 +34,9 @@ def test_client_credentials_grant(client):
         },
     )
     assert response.status_code == 200
-    assert "access_token" in response.json()
+    body = response.json()
+    assert "access_token" in body
+    assert "scope" in body  # Zoho includes scope for client_credentials grant
 
 
 def test_client_credentials_missing_soid(client):
@@ -104,6 +106,25 @@ def test_revoke_token(client):
     assert revoke.status_code == 200
     assert revoke.json()["status"] == "success"
     # Token should no longer work
+    response = client.get("/crm/v3/Cases", headers={"Authorization": f"Zoho-oauthtoken {token}"})
+    assert response.status_code == 401
+
+
+def test_revoke_token_alias_path(client):
+    """The /oauth/v2/revoke/token path (newer developer docs) should work the same."""
+    response = client.post(
+        "/oauth/v2/token",
+        data={
+            "grant_type": "refresh_token",
+            "client_id": "test_client",
+            "client_secret": "test_secret",
+            "refresh_token": "test_refresh",
+        },
+    )
+    token = response.json()["access_token"]
+    revoke = client.post("/oauth/v2/revoke/token", data={"token": token})
+    assert revoke.status_code == 200
+    assert revoke.json()["status"] == "success"
     response = client.get("/crm/v3/Cases", headers={"Authorization": f"Zoho-oauthtoken {token}"})
     assert response.status_code == 401
 
