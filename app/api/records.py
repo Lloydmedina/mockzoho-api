@@ -2,7 +2,7 @@
 
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Body, Depends, Query, Response
+from fastapi import APIRouter, Body, Depends, Path, Query, Response
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
@@ -139,9 +139,9 @@ def list_records(
     pagination: PaginationDep,
     fields: RequiredFieldsDep,
     if_modified_since: ModifiedSinceDep,
-    sort_by: Annotated[str, Query(description="Field API name to sort on (mock extension, not in real Zoho)")] = "Modified_Time",
-    sort_order: Annotated[str, Query(description="Sort order: asc or desc")] = "desc",
-    ids: Annotated[str | None, Query(description="Comma separated record ids to filter on")] = None,
+    sort_by: Annotated[str, Query(description="Field API name to sort on (mock extension, not in real Zoho)", example="Modified_Time")] = "Modified_Time",
+    sort_order: Annotated[str, Query(description="Sort order: asc or desc", example="desc")] = "desc",
+    ids: Annotated[str | None, Query(description="Comma separated record ids to filter on", example="4876000000200001,4876000000200002")] = None,
 ) -> Response:
     page, per_page = pagination
     wanted = set(parse_id_list(ids))
@@ -181,7 +181,7 @@ def list_records(
 )
 def get_record(
     module: ModuleDep,
-    record_id: str,
+    record_id: Annotated[str, Path(description="19-digit record ID", example="4876000000200001")],
     session: SessionDep,
     fields: FieldsDep,
 ) -> Response:
@@ -273,7 +273,7 @@ def update_records(
 @router.put("/{module}/{record_id}", summary="Update a single record")
 def update_record(
     module: ModuleDep,
-    record_id: str,
+    record_id: Annotated[str, Path(description="19-digit record ID", example="4876000000200001")],
     session: SessionDep,
     payload: Annotated[RecordsPayload, Body(openapi_examples=UPDATE_EXAMPLES)],
 ) -> JSONResponse:
@@ -361,7 +361,7 @@ def upsert_records(
 def delete_records(
     module: ModuleDep,
     session: SessionDep,
-    ids: Annotated[str, Query(description="Comma separated record ids")],
+    ids: Annotated[str, Query(description="Comma separated record ids", example="4876000000200001,4876000000200002")],
 ) -> JSONResponse:
     id_list = parse_id_list(ids)
     if not id_list:
@@ -384,7 +384,11 @@ def delete_records(
 
 
 @router.delete("/{module}/{record_id}", summary="Delete a single record")
-def delete_record(module: ModuleDep, record_id: str, session: SessionDep) -> JSONResponse:
+def delete_record(
+    module: ModuleDep,
+    record_id: Annotated[str, Path(description="19-digit record ID", example="4876000000200001")],
+    session: SessionDep,
+) -> JSONResponse:
     validate_record_id(record_id)
     if not delete(session, module.api_name, record_id):
         raise ZohoAPIError("RESOURCE_NOT_FOUND", "the record does not exist", {"id": record_id})

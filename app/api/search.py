@@ -64,9 +64,9 @@ def search_records(
         str | None,
         Query(description="Zoho criteria expression", examples=["(Status:equals:Open)"]),
     ] = None,
-    email: Annotated[str | None, Query(description="Exact email match")] = None,
-    phone: Annotated[str | None, Query(description="Exact phone match")] = None,
-    word: Annotated[str | None, Query(description="Free text match across text fields")] = None,
+    email: Annotated[str | None, Query(description="Exact email match", example="dana.levi@example.com")] = None,
+    phone: Annotated[str | None, Query(description="Exact phone match", example="+972-52-555-0111")] = None,
+    word: Annotated[str | None, Query(description="Free text match across text fields", example="cooling")] = None,
 ) -> Response:
     provided = [value for value in (criteria, email, phone, word) if value]
     if not provided:

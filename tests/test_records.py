@@ -166,7 +166,7 @@ def test_upsert_update_existing(client, auth_headers):
 
 
 def test_invalid_module(client, auth_headers):
-    response = client.get("/crm/v3/Leads?fields=Subject", headers=auth_headers)
+    response = client.get("/crm/v3/NonExistentModule?fields=Subject", headers=auth_headers)
     assert response.status_code == 400
     assert response.json()["code"] == "INVALID_MODULE"
 

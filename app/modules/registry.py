@@ -222,9 +222,350 @@ CASE_ACTIONS = ModuleSpec(
     ),
 )
 
+LEADS = ModuleSpec(
+    api_name="Leads",
+    singular="Lead",
+    plural="Leads",
+    fields=(
+        FieldSpec("Last_Name", "string", required=True),
+        FieldSpec("First_Name", "string"),
+        FieldSpec("Company", "string"),
+        FieldSpec("Email", "email"),
+        FieldSpec("Phone", "phone"),
+        FieldSpec("Mobile", "phone"),
+        FieldSpec(
+            "Lead_Source",
+            "picklist",
+            picklist_values=(
+                "Advertisement",
+                "Cold Call",
+                "Employee Referral",
+                "External Referral",
+                "Online Store",
+                "Partner",
+                "Public Relations",
+                "Trade Show",
+                "Web Download",
+                "Web Research",
+                "Chat",
+            ),
+        ),
+        FieldSpec(
+            "Lead_Status",
+            "picklist",
+            picklist_values=("Contacted", "Not Contacted", "Qualified", "Junk Lead", "Lost Lead"),
+        ),
+        FieldSpec("Rating", "picklist", picklist_values=("Hot", "Warm", "Cold")),
+        FieldSpec(
+            "Industry",
+            "picklist",
+            picklist_values=("Technology", "Finance", "Healthcare", "Manufacturing", "Retail", "Education", "Other"),
+        ),
+        FieldSpec("Annual_Revenue", "double"),
+        FieldSpec("Description", "text"),
+    ),
+    related_lists={
+        "Tasks": ("Tasks", "Who_Id"),
+        "Calls": ("Calls", "Who_Id"),
+        "Meetings": ("Meetings", "Who_Id"),
+    },
+)
+
+CONTACTS = ModuleSpec(
+    api_name="Contacts",
+    singular="Contact",
+    plural="Contacts",
+    fields=(
+        FieldSpec("Last_Name", "string", required=True),
+        FieldSpec("First_Name", "string"),
+        FieldSpec("Email", "email"),
+        FieldSpec("Phone", "phone"),
+        FieldSpec("Mobile", "phone"),
+        FieldSpec("Title", "string"),
+        FieldSpec("Department", "string"),
+        FieldSpec("Account_Name", "lookup", lookup_module="Accounts"),
+        FieldSpec("Mailing_City", "string"),
+        FieldSpec("Mailing_State", "string"),
+        FieldSpec("Mailing_Country", "string"),
+        FieldSpec("Description", "text"),
+    ),
+    related_lists={
+        "Tasks": ("Tasks", "Who_Id"),
+        "Calls": ("Calls", "Who_Id"),
+        "Meetings": ("Meetings", "Who_Id"),
+    },
+)
+
+ACCOUNTS = ModuleSpec(
+    api_name="Accounts",
+    singular="Account",
+    plural="Accounts",
+    fields=(
+        FieldSpec("Account_Name", "string", required=True),
+        FieldSpec("Phone", "phone"),
+        FieldSpec("Website", "string"),
+        FieldSpec("Fax", "string"),
+        FieldSpec("Billing_City", "string"),
+        FieldSpec("Billing_State", "string"),
+        FieldSpec("Billing_Country", "string"),
+        FieldSpec("Shipping_City", "string"),
+        FieldSpec("Shipping_State", "string"),
+        FieldSpec("Shipping_Country", "string"),
+        FieldSpec(
+            "Industry",
+            "picklist",
+            picklist_values=("Technology", "Finance", "Healthcare", "Manufacturing", "Retail", "Education", "Other"),
+        ),
+        FieldSpec("Annual_Revenue", "double"),
+        FieldSpec("Employees", "integer"),
+        FieldSpec("Description", "text"),
+    ),
+    related_lists={
+        "Contacts": ("Contacts", "Account_Name"),
+        "Deals": ("Deals", "Account_Name"),
+        "Cases": ("Cases", "Account_Name"),
+    },
+)
+
+DEALS = ModuleSpec(
+    api_name="Deals",
+    singular="Deal",
+    plural="Deals",
+    fields=(
+        FieldSpec("Deal_Name", "string", required=True),
+        FieldSpec("Amount", "double"),
+        FieldSpec(
+            "Stage",
+            "picklist",
+            picklist_values=(
+                "Qualification",
+                "Needs Analysis",
+                "Proposal/Price Quote",
+                "Negotiation/Review",
+                "Closed Won",
+                "Closed Lost",
+                "Id. Decision Makers",
+            ),
+        ),
+        FieldSpec("Probability", "double"),
+        FieldSpec("Closing_Date", "date"),
+        FieldSpec("Account_Name", "lookup", lookup_module="Accounts"),
+        FieldSpec("Contact_Name", "lookup", lookup_module="Contacts"),
+        FieldSpec("Type", "picklist", picklist_values=("New Business", "Existing Business")),
+        FieldSpec(
+            "Lead_Source",
+            "picklist",
+            picklist_values=(
+                "Advertisement",
+                "Cold Call",
+                "Employee Referral",
+                "External Referral",
+                "Online Store",
+                "Partner",
+                "Public Relations",
+                "Trade Show",
+                "Web Download",
+                "Web Research",
+                "Chat",
+            ),
+        ),
+        FieldSpec("Description", "text"),
+    ),
+    related_lists={
+        "Tasks": ("Tasks", "What_Id"),
+        "Calls": ("Calls", "What_Id"),
+        "Meetings": ("Meetings", "What_Id"),
+    },
+)
+
+TASKS = ModuleSpec(
+    api_name="Tasks",
+    singular="Task",
+    plural="Tasks",
+    fields=(
+        FieldSpec("Subject", "string", required=True),
+        FieldSpec("Due_Date", "date"),
+        FieldSpec(
+            "Status",
+            "picklist",
+            picklist_values=("Not Started", "In Progress", "Completed", "Waiting on someone else", "Deferred"),
+        ),
+        FieldSpec("Priority", "picklist", picklist_values=("High", "Highest", "Normal", "Lowest", "Low")),
+        FieldSpec("What_Id", "lookup", lookup_module="Deals"),
+        FieldSpec("Who_Id", "lookup", lookup_module="Contacts"),
+        FieldSpec("Description", "text"),
+    ),
+)
+
+MEETINGS = ModuleSpec(
+    api_name="Meetings",
+    singular="Meeting",
+    plural="Meetings",
+    fields=(
+        FieldSpec("Subject", "string", required=True),
+        FieldSpec("Start_DateTime", "datetime"),
+        FieldSpec("End_DateTime", "datetime"),
+        FieldSpec("Status", "picklist", picklist_values=("Planned", "Held", "Not Held")),
+        FieldSpec("Location", "string"),
+        FieldSpec("What_Id", "lookup", lookup_module="Deals"),
+        FieldSpec("Who_Id", "lookup", lookup_module="Contacts"),
+        FieldSpec("Description", "text"),
+    ),
+)
+
+CALLS = ModuleSpec(
+    api_name="Calls",
+    singular="Call",
+    plural="Calls",
+    fields=(
+        FieldSpec("Subject", "string", required=True),
+        FieldSpec("Call_Start_Time", "datetime"),
+        FieldSpec("Call_Duration", "string"),
+        FieldSpec("Call_Type", "picklist", picklist_values=("Inbound", "Outbound")),
+        FieldSpec("Call_Result", "picklist", picklist_values=("Attended", "Missed", "Dropped", "Voicemail")),
+        FieldSpec("What_Id", "lookup", lookup_module="Deals"),
+        FieldSpec("Who_Id", "lookup", lookup_module="Contacts"),
+        FieldSpec("Description", "text"),
+    ),
+)
+
+QUOTES = ModuleSpec(
+    api_name="Quotes",
+    singular="Quote",
+    plural="Quotes",
+    fields=(
+        FieldSpec("Subject", "string", required=True),
+        FieldSpec("Quote_Stage", "picklist", picklist_values=("Draft", "Delivered", "Negotiation", "Closed Won", "Closed Lost")),
+        FieldSpec("Valid_Till", "date"),
+        FieldSpec("Account_Name", "lookup", lookup_module="Accounts"),
+        FieldSpec("Deal_Name", "lookup", lookup_module="Deals"),
+        FieldSpec("Grand_Total", "double"),
+        FieldSpec("Description", "text"),
+    ),
+)
+
+SALES_ORDERS = ModuleSpec(
+    api_name="Sales_Orders",
+    singular="Sales_Order",
+    plural="Sales_Orders",
+    fields=(
+        FieldSpec("Subject", "string", required=True),
+        FieldSpec("SO_Number", "string"),
+        FieldSpec("Status", "picklist", picklist_values=("Draft", "Pending", "In Progress", "Delivered", "Cancelled")),
+        FieldSpec("Account_Name", "lookup", lookup_module="Accounts"),
+        FieldSpec("Deal_Name", "lookup", lookup_module="Deals"),
+        FieldSpec("Grand_Total", "double"),
+        FieldSpec("Pending", "double"),
+        FieldSpec("Description", "text"),
+    ),
+)
+
+PURCHASE_ORDERS = ModuleSpec(
+    api_name="Purchase_Orders",
+    singular="Purchase_Order",
+    plural="Purchase_Orders",
+    fields=(
+        FieldSpec("Subject", "string", required=True),
+        FieldSpec("PO_Number", "string"),
+        FieldSpec("Status", "picklist", picklist_values=("Draft", "Pending", "Approved", "Received", "Cancelled")),
+        FieldSpec("Vendor_Name", "lookup", lookup_module="Accounts"),
+        FieldSpec("Tracking_Number", "string"),
+        FieldSpec("Grand_Total", "double"),
+        FieldSpec("Description", "text"),
+    ),
+)
+
+INVOICES = ModuleSpec(
+    api_name="Invoices",
+    singular="Invoice",
+    plural="Invoices",
+    fields=(
+        FieldSpec("Subject", "string", required=True),
+        FieldSpec("Invoice_Number", "string"),
+        FieldSpec("Status", "picklist", picklist_values=("Draft", "Sent", "Paid", "Partially Paid", "Cancelled")),
+        FieldSpec("Account_Name", "lookup", lookup_module="Accounts"),
+        FieldSpec("Sales_Order", "lookup", lookup_module="Sales_Orders"),
+        FieldSpec("Grand_Total", "double"),
+        FieldSpec("Paid", "double"),
+        FieldSpec("Balance", "double"),
+        FieldSpec("Description", "text"),
+    ),
+)
+
+CAMPAIGNS = ModuleSpec(
+    api_name="Campaigns",
+    singular="Campaign",
+    plural="Campaigns",
+    fields=(
+        FieldSpec("Campaign_Name", "string", required=True),
+        FieldSpec(
+            "Type",
+            "picklist",
+            picklist_values=(
+                "Conference",
+                "Trade Show",
+                "Public Relations",
+                "Seminar",
+                "Email",
+                "Webinar",
+                "Advertisement",
+                "Partner",
+                "Referral",
+            ),
+        ),
+        FieldSpec("Status", "picklist", picklist_values=("Planned", "Active", "Inactive", "Completed")),
+        FieldSpec("Start_Date", "date"),
+        FieldSpec("End_Date", "date"),
+        FieldSpec("Budget", "double"),
+        FieldSpec("Actual_Cost", "double"),
+        FieldSpec("Expected_Revenue", "double"),
+        FieldSpec("Num_Sent", "integer"),
+        FieldSpec("Description", "text"),
+    ),
+    related_lists={
+        "Tasks": ("Tasks", "What_Id"),
+    },
+)
+
+SOLUTIONS = ModuleSpec(
+    api_name="Solutions",
+    singular="Solution",
+    plural="Solutions",
+    fields=(
+        FieldSpec("Solution_Title", "string", required=True),
+        FieldSpec("Solution_Number", "string"),
+        FieldSpec("Status", "picklist", picklist_values=("Draft", "Published", "Reviewed", "Rejected")),
+        FieldSpec("Question", "text"),
+        FieldSpec("Answer", "text"),
+        FieldSpec("Category", "string"),
+        FieldSpec("Publish_Date", "date"),
+        FieldSpec("Description", "text"),
+    ),
+)
+
 MODULES: dict[str, ModuleSpec] = {
     m.api_name: m
-    for m in (CASES, VISITS, PRODUCTS, LABOR_COSTS, SPARE_PARTS, CASE_ACTIONS)
+    for m in (
+        LEADS,
+        CONTACTS,
+        ACCOUNTS,
+        DEALS,
+        TASKS,
+        MEETINGS,
+        CALLS,
+        QUOTES,
+        SALES_ORDERS,
+        PURCHASE_ORDERS,
+        INVOICES,
+        CAMPAIGNS,
+        SOLUTIONS,
+        CASES,
+        VISITS,
+        PRODUCTS,
+        LABOR_COSTS,
+        SPARE_PARTS,
+        CASE_ACTIONS,
+    )
 }
 
 MODULE_NAMES: tuple[str, ...] = tuple(MODULES)
@@ -245,7 +586,17 @@ def is_system_field(name: str) -> bool:
 def module_summary() -> dict[str, Any]:
     return {
         name: {
-            "fields": [f.api_name for f in spec.fields],
+            "fields": [
+                {
+                    "api_name": f.api_name,
+                    "type": f.type,
+                    "required": f.required,
+                    "picklist_values": list(f.picklist_values),
+                    "lookup_module": f.lookup_module,
+                    "read_only": f.read_only,
+                }
+                for f in spec.fields
+            ],
             "required": [f.api_name for f in spec.required_fields()],
             "related_lists": list(spec.related_lists),
         }

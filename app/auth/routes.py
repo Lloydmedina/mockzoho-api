@@ -156,7 +156,7 @@ async def revoke_token(
     request: Request,
     token: Annotated[
         str | None,
-        Query(description="Access or refresh token to revoke"),
+        Query(description="Access or refresh token to revoke", example="1000.mockrefreshtoken.refresh"),
     ] = None,
 ) -> JSONResponse:
     params = await _merged_params(request)

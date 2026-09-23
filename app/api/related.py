@@ -1,6 +1,8 @@
 """`GET /crm/v3/{module}/{id}/{related_list}` — related record traversal."""
 
-from fastapi import APIRouter, Depends, Response
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, Path, Response
 from fastapi.responses import JSONResponse
 
 from app.api.deps import FieldsDep, ModuleDep, PaginationDep, SessionDep, validate_record_id
@@ -22,8 +24,8 @@ router = APIRouter(tags=["Records"], dependencies=[Depends(require_token)])
 )
 def get_related_records(
     module: ModuleDep,
-    record_id: str,
-    related_list: str,
+    record_id: Annotated[str, Path(description="19-digit record ID", example="4876000000200001")],
+    related_list: Annotated[str, Path(description="Related list name (e.g. Visits, Labor_Costs, Spare_Parts, Case_Actions)", example="Visits")],
     session: SessionDep,
     pagination: PaginationDep,
     fields: FieldsDep,

@@ -100,7 +100,7 @@ def test_coql_invalid_module(client, auth_headers):
     response = client.post(
         "/crm/v3/coql",
         headers=auth_headers,
-        json={"select_query": "select * from Leads"},
+        json={"select_query": "select * from NonExistentModule"},
     )
     assert response.status_code == 400
     assert response.json()["code"] == "INVALID_MODULE"

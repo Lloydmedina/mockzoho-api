@@ -118,7 +118,8 @@ def test_mock_modules_endpoint(client):
     assert "Cases" in modules
     assert "Visits" in modules
     assert "Products" in modules
-    assert "Subject" in modules["Cases"]["fields"]
+    case_field_names = [f["api_name"] for f in modules["Cases"]["fields"]]
+    assert "Subject" in case_field_names
     assert "Subject" in modules["Cases"]["required"]
 
 

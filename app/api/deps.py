@@ -53,8 +53,8 @@ def module_spec(
 
 
 def pagination(
-    page: Annotated[int, Query(ge=1, description="1-based page number")] = 1,
-    per_page: Annotated[int, Query(ge=1, description="Records per page (max 200)")] = None,  # type: ignore[assignment]
+    page: Annotated[int, Query(ge=1, description="1-based page number", example=1)] = 1,
+    per_page: Annotated[int, Query(ge=1, description="Records per page (max 200)", example=200)] = None,  # type: ignore[assignment]
 ) -> tuple[int, int]:
     resolved = settings.default_per_page if per_page is None else per_page
     if resolved > settings.max_per_page:
@@ -103,7 +103,7 @@ def required_field_list(
 def modified_since(
     if_modified_since: Annotated[
         str | None,
-        Header(alias="If-Modified-Since", description="ISO 8601 timestamp; returns only newer records"),
+        Header(alias="If-Modified-Since", description="ISO 8601 timestamp; returns only newer records", example="2026-09-01T00:00:00+08:00"),
     ] = None,
 ) -> str | None:
     return if_modified_since

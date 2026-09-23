@@ -158,6 +158,15 @@ app.include_router(control_router)
 
 app.mount("/presentations", StaticFiles(directory=str(Path(__file__).parent / "presentations")), name="presentations")
 
+_ui_dir = Path(__file__).parent / "static" / "ui"
+if _ui_dir.exists():
+    app.mount("/ui", StaticFiles(directory=str(_ui_dir), html=True), name="ui")
+
+    @app.get("/", include_in_schema=False)
+    async def root_redirect() -> HTMLResponse:
+        from starlette.responses import RedirectResponse
+        return RedirectResponse(url="/ui/")
+
 
 @app.exception_handler(ZohoAPIError)
 async def zoho_error_handler(request: Request, exc: ZohoAPIError) -> JSONResponse:
