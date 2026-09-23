@@ -158,9 +158,24 @@ app.include_router(control_router)
 
 app.mount("/presentations", StaticFiles(directory=str(Path(__file__).parent / "presentations")), name="presentations")
 
+class SPAStaticFiles(StaticFiles):
+    """StaticFiles with SPA fallback: unknown paths serve index.html
+    so Vue Router history-mode routes (e.g. /ui/Cases) survive reloads."""
+
+    async def get_response(self, path: str, scope):  # type: ignore[override]
+        from starlette.exceptions import HTTPException as StarletteHTTPException
+
+        try:
+            return await super().get_response(path, scope)
+        except StarletteHTTPException as exc:
+            if exc.status_code == 404:
+                return await super().get_response("index.html", scope)
+            raise
+
+
 _ui_dir = Path(__file__).parent / "static" / "ui"
 if _ui_dir.exists():
-    app.mount("/ui", StaticFiles(directory=str(_ui_dir), html=True), name="ui")
+    app.mount("/ui", SPAStaticFiles(directory=str(_ui_dir), html=True), name="ui")
 
     @app.get("/", include_in_schema=False)
     async def root_redirect() -> HTMLResponse:

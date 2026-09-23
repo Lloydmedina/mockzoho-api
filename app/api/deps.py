@@ -75,6 +75,8 @@ def field_list(
     if not fields:
         return None
     parsed = [part.strip() for part in fields.split(",") if part.strip()]
+    if "*" in parsed:
+        return None
     return parsed or None
 
 
@@ -97,6 +99,8 @@ def required_field_list(
             "required parameter is missing",
             {"param": "fields"},
         )
+    if "*" in parsed:
+        return []
     return parsed
 
 

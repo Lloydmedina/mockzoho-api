@@ -25,6 +25,11 @@ async function login() {
     })
     if (data.error) { error.value = data.error; return }
     auth.setToken(data.access_token, data.api_domain || '')
+    auth.setCreds({
+      client_id: clientId.value,
+      client_secret: clientSecret.value,
+      refresh_token: refreshToken.value,
+    })
     router.push('/Cases')
   } catch (e: any) { error.value = e.message } finally { loading.value = false }
 }

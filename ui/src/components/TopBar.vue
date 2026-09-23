@@ -9,6 +9,11 @@ const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
 
+async function doResetToken() {
+  auth.logout()
+  router.push('/login')
+}
+
 function doLogout() {
   auth.logout()
   router.push('/login')
@@ -27,6 +32,7 @@ async function doReset() {
     <button class="toggle-btn" @click="$emit('toggle-sidebar')">☰</button>
     <h1 class="module-title">{{ route.params.module || 'Dashboard' }}</h1>
     <div class="topbar-actions">
+      <button class="btn-reset" @click="doResetToken" title="Refresh access token">⟳ Token</button>
       <button class="btn-reset" @click="doReset" title="Reset DB">↻ Reset</button>
       <button class="btn-logout" @click="doLogout">Logout</button>
     </div>

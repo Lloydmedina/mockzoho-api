@@ -18,7 +18,7 @@ export async function listRecords(module: string, params: Record<string, any> = 
 }
 
 export async function getRecord(module: string, id: string) {
-  const data = await apiFetch(`/crm/v3/${module}/${id}?fields=*`)
+  const data = await apiFetch(`/crm/v3/${module}/${id}`)
   return data?.data?.[0] || null
 }
 

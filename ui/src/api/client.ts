@@ -1,7 +1,27 @@
 import { useAuthStore } from '../stores/auth'
 import { router } from '../router'
 
-export async function apiFetch(path: string, options: RequestInit = {}): Promise<any> {
+let refreshing: Promise<boolean> | null = null
+
+async function refreshToken(): Promise<boolean> {
+  const auth = useAuthStore()
+  if (!auth.creds) return false
+  try {
+    const res = await fetch('/oauth/v2/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ grant_type: 'refresh_token', ...auth.creds }),
+    })
+    const data = await res.json()
+    if (!data.access_token) return false
+    auth.setToken(data.access_token, data.api_domain || '')
+    return true
+  } catch {
+    return false
+  }
+}
+
+export async function apiFetch(path: string, options: RequestInit = {}, retried = false): Promise<any> {
   const auth = useAuthStore()
   const headers: Record<string, string> = {
     ...(options.headers as Record<string, string> || {}),
@@ -12,6 +32,10 @@ export async function apiFetch(path: string, options: RequestInit = {}): Promise
   const res = await fetch(path, { ...options, headers })
 
   if (res.status === 401) {
+    if (!retried) {
+      refreshing = refreshing || refreshToken().finally(() => { refreshing = null })
+      if (await refreshing) return apiFetch(path, options, true)
+    }
     auth.logout()
     router.push({ name: 'login' })
     throw new Error('Session expired')
