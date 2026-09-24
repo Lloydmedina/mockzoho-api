@@ -10,6 +10,7 @@ from starlette.exceptions import HTTPException
 
 from app.api.coql import router as coql_router
 from app.api.control import load_seeds, router as control_router
+from app.api.functions import router as functions_router
 from app.api.records import router as records_router
 from app.api.related import router as related_router
 from app.api.search import router as search_router
@@ -154,6 +155,7 @@ app.include_router(coql_router, prefix="/crm/v3")
 app.include_router(search_router, prefix="/crm/v3")
 app.include_router(records_router, prefix="/crm/v3")
 app.include_router(related_router, prefix="/crm/v3")
+app.include_router(functions_router, prefix="/crm/v3")
 app.include_router(control_router)
 
 app.mount("/presentations", StaticFiles(directory=str(Path(__file__).parent / "presentations")), name="presentations")
