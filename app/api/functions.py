@@ -48,17 +48,32 @@ def _check_auth(request: Request) -> None:
 
 
 async def _read_arguments(request: Request) -> dict[str, Any]:
-    """Zoho functions accept args as query params, a form/JSON `arguments` key, or a raw JSON body."""
-    args: dict[str, Any] = {
-        k: v for k, v in request.query_params.items() if k not in _META_PARAMS
-    }
+    args: dict[str, Any] = {}
+    for k, v in request.query_params.items():
+        if k in _META_PARAMS:
+            continue
+        if k == "arguments":
+            try:
+                decoded = json.loads(v)
+                if isinstance(decoded, dict):
+                    args.update(decoded)
+                    continue
+            except (json.JSONDecodeError, ValueError):
+                pass
+        args[k] = v
     content_type = request.headers.get("content-type", "")
     if "application/json" in content_type:
         body = await request.json()
         if isinstance(body, dict):
             inner = body.get("arguments")
             if isinstance(inner, str):
-                inner = json.loads(inner)
+                try:
+                    inner = json.loads(inner)
+                except (json.JSONDecodeError, ValueError):
+                    raise ZohoAPIError(
+                        "INVALID_DATA",
+                        "arguments must be a JSON-encoded map",
+                    )
             args.update(inner if isinstance(inner, dict) else body)
     else:
         form = await request.form()
@@ -68,7 +83,6 @@ async def _read_arguments(request: Request) -> dict[str, Any]:
         else:
             args.update(dict(form))
     return args
-
 
 @router.post("/functions/{api_name}/actions/execute")
 async def execute_function(api_name: str, request: Request):
