@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { listRecords, createRecord, updateRecord, deleteRecord } from '../api/modules'
 import { useModulesStore, type FieldSpec } from '../stores/modules'
 import FieldInput from '../components/FieldInput.vue'
+import SchemaAccordion from '../components/SchemaAccordion.vue'
 
 const props = defineProps<{ module: string }>()
 const router = useRouter()
@@ -164,6 +165,7 @@ watch(() => props.module, () => {
 
     <!-- Right panel: List/Table (60%) -->
     <div class="list-panel" :class="{ full: !formVisible }">
+      <SchemaAccordion :module="module" :spec="moduleSpec" />
       <div class="list-toolbar">
         <button class="btn-create" @click="openCreate">+ Create</button>
       </div>

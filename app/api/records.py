@@ -137,7 +137,7 @@ def list_records(
     module: ModuleDep,
     session: SessionDep,
     pagination: PaginationDep,
-    fields: RequiredFieldsDep,
+    fields: FieldsDep,
     if_modified_since: ModifiedSinceDep,
     sort_by: Annotated[str, Query(description="Field API name to sort on (mock extension, not in real Zoho)", example="Modified_Time")] = "Modified_Time",
     sort_order: Annotated[str, Query(description="Sort order: asc or desc", example="desc")] = "desc",
