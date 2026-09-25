@@ -286,6 +286,32 @@ LABOR_COSTS = [
         "Work_Date": "2026-08-25",
         "Notes": "Full boiler installation including plumbing and electrical.",
     },
+    # App-style record: mirrors what POST /visits/actions/labor-costs?visit_id=
+    # writes via the Zoho adapter — full operational payload, no Hourly_Rate,
+    # Total_Cost produced by the calculate_visit_total function.
+    {
+        "id": "4876000000500005",
+        "Name": "Labor Costs - Visit #2 - Repair - Dana Levi",
+        "Case": {"id": "4876000000200001", "name": "AC unit not cooling - capacitor failure"},
+        "Visit": {"id": "4876000000400002", "name": "Visit #2 - Repair - Dana Levi"},
+        "Work_Type": "Repair",
+        "Technician": "Yossi Bar",
+        "Technician_Count": 1,
+        "Technician_Hours": 2.0,
+        "Helper_Hours": 1.0,
+        "Kilometers_Traveled": 40.0,
+        "Gas_Type": "R32",
+        "Gas_Quantity_Kg": 1.0,
+        "Meal_Expense": 15.0,
+        "Other_Expenses": 10.0,
+        "Expense_Description": "Parking toll",
+        "Hours": 2.0,
+        "Total_Cost": 190.0,
+        "Currency": "EUR",
+        "Billable": True,
+        "Work_Date": "2026-09-10",
+        "Notes": "Labor costs action submitted from the app; total computed by calculate_visit_total.",
+    },
 ]
 
 SPARE_PARTS = [
