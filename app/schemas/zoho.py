@@ -41,6 +41,14 @@ ERROR_CATALOG: dict[str, tuple[int, str]] = {
     "AUTHORIZATION_FAILED": (401, "authorization failed"),
     "SYNTAX_ERROR": (400, "syntax error in the query"),
     "DEPENDENT_FIELD_MISSING": (400, "a dependent field is missing"),
+    "AMBIGUITY_DURING_PROCESSING": (400, "ambiguity found during processing of request"),
+    "NOT_ALLOWED": (400, "the given API is not allowed in this context"),
+    "NOT_SUPPORTED": (400, "the given API is not supported by composite API"),
+    "INVALID_REFERENCE": (400, "invalid reference found in the request"),
+    "LOOPING_FOUND": (400, "the sub-requests are referring to each other"),
+    "ROLLBACK_PERFORMED": (400, "the transaction was rolled back since another sub request in the same transaction failed."),
+    "PROCESSING_STOPPED": (400, "the transaction was rolled back since another sub request in the same transaction failed."),
+    "API_NOT_SUPPORTED": (400, "the API invoked is not supported in this version"),
 }
 
 

@@ -8,6 +8,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException
 
+from app.api.composite import router as composite_router
 from app.api.coql import router as coql_router
 from app.api.control import load_seeds, router as control_router
 from app.api.functions import router as functions_router
@@ -46,6 +47,13 @@ A high-fidelity mock of the **Zoho CRM v3 REST API** for local development and t
 ### Available modules
 
 `Cases`, `Visits`, `Products`, `Labor_Costs`, `Spare_Parts`, `Case_Actions`
+
+### Composite API
+
+`POST /crm/v3/__composite_requests` — batch up to 5 sub-requests in one call,
+with `@{sub_request_id:$.json.path}` references, `rollback_on_fail`, and
+`parallel_execution`. Sub-requests are dispatched through the same app, so
+auth, validation, faults, and rate limits all apply.
 
 ### Mock control plane
 
@@ -151,6 +159,9 @@ app.add_middleware(RateLimitMiddleware)
 app.add_middleware(FaultInjectionMiddleware)
 
 app.include_router(oauth_router)
+# Composite must register before records: `POST /__composite_requests` would
+# otherwise be shadowed by `POST /{module}`.
+app.include_router(composite_router, prefix="/crm/v3")
 app.include_router(coql_router, prefix="/crm/v3")
 app.include_router(search_router, prefix="/crm/v3")
 app.include_router(records_router, prefix="/crm/v3")

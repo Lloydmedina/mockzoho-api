@@ -47,7 +47,7 @@ def test_create_record(client, auth_headers):
             "data": [
                 {
                     "Subject": "New test case",
-                    "Status": "Open",
+                    "Status": "Approved",
                     "Priority": "Medium",
                 }
             ]
@@ -64,7 +64,7 @@ def test_create_missing_required_field(client, auth_headers):
     response = client.post(
         "/crm/v3/Cases",
         headers=auth_headers,
-        json={"data": [{"Status": "Open"}]},
+        json={"data": [{"Status": "Approved"}]},
     )
     assert response.status_code == 400
     result = response.json()["data"][0]
@@ -141,7 +141,7 @@ def test_upsert_insert_new(client, auth_headers):
         "/crm/v3/Cases/upsert",
         headers=auth_headers,
         json={
-            "data": [{"Subject": "Upserted case", "Status": "Open"}],
+            "data": [{"Subject": "Upserted case", "Status": "Approved"}],
             "duplicate_check_fields": ["Subject"],
         },
     )
@@ -207,7 +207,7 @@ def test_partial_success_returns_207(client, auth_headers):
         headers=auth_headers,
         json={
             "data": [
-                {"Subject": "Good case", "Status": "Open"},
+                {"Subject": "Good case", "Status": "Approved"},
                 {"Subject": "Bad case", "Status": "NotARealStatus"},
             ]
         },
@@ -222,7 +222,7 @@ def test_write_response_includes_approval_state(client, auth_headers):
     response = client.post(
         "/crm/v3/Cases",
         headers=auth_headers,
-        json={"data": [{"Subject": "Test", "Status": "Open"}]},
+        json={"data": [{"Subject": "Test", "Status": "Approved"}]},
     )
     assert response.status_code == 201
     details = response.json()["data"][0]["details"]

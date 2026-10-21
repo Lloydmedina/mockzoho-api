@@ -1,5 +1,7 @@
 """Functions-execute tests — the calculate_visit_total pricing simulation."""
 
+import json
+
 
 def _payload() -> dict:
     return {
@@ -27,7 +29,17 @@ def test_execute_pricing_function(client, auth_headers):
     body = response.json()
     assert body["code"] == "success"
     # 2.0*45 + 1.0*30 + 40*0.5 + 1.0*25 + 15 + 10 = 190
-    assert body["details"]["output"] == "190.00"
+    output = json.loads(body["details"]["output"])
+    assert output == {
+        "technician_cost": 90.0,
+        "helper_cost": 30.0,
+        "travel_cost": 20.0,
+        "gas_cost": 25.0,
+        "meal_expense": 15.0,
+        "other_expenses": 10.0,
+        "total_amount": 190.0,
+        "currency": "EUR",
+    }
 
 
 def test_execute_pricing_function_query_args(client, auth_headers):
@@ -37,7 +49,8 @@ def test_execute_pricing_function_query_args(client, auth_headers):
         headers=auth_headers,
     )
     assert response.status_code == 200
-    assert response.json()["details"]["output"] == "45.00"
+    output = json.loads(response.json()["details"]["output"])
+    assert output["total_amount"] == 45.0
 
 
 def test_execute_unknown_function(client, auth_headers):
@@ -65,4 +78,5 @@ def test_execute_with_apikey_auth(client):
         "?auth_type=apikey&zapikey=1003.testkey&technician_hours=1.0",
     )
     assert response.status_code == 200
-    assert response.json()["details"]["output"] == "45.00"
+    output = json.loads(response.json()["details"]["output"])
+    assert output["total_amount"] == 45.0

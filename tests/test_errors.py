@@ -87,7 +87,7 @@ def test_mock_seed_custom(client, auth_headers):
                 {
                     "id": "4876000000200099",
                     "Subject": "Custom seeded case",
-                    "Status": "Open",
+                    "Status": "Approved",
                     "Priority": "Medium",
                 }
             ],

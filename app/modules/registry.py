@@ -70,7 +70,13 @@ CASES = ModuleSpec(
         FieldSpec(
             "Status",
             "picklist",
-            picklist_values=("Open", "In Progress", "Waiting for Parts", "Escalated", "Closed"),
+            picklist_values=(
+                "Submitted for warranty review",
+                "Missing information",
+                "Approved",
+                "Rejected",
+                "Closed",
+            ),
         ),
         FieldSpec("Priority", "picklist", picklist_values=("Low", "Medium", "High", "Critical")),
         FieldSpec("Case_Origin", "picklist", picklist_values=("Phone", "Email", "Web", "Field")),
@@ -85,6 +91,10 @@ CASES = ModuleSpec(
         FieldSpec("Service_Address", "text"),
         FieldSpec("City", "string"),
         FieldSpec("Technician", "string"),
+        FieldSpec("Technician_Id", "string"),
+        FieldSpec("Installation_Date", "date"),
+        FieldSpec("Service_Center_Name", "string"),
+        FieldSpec("Service_Center_Address", "text"),
         FieldSpec(
             "Warranty_Status",
             "picklist",
@@ -94,12 +104,14 @@ CASES = ModuleSpec(
         FieldSpec("Closed_Date", "datetime"),
         FieldSpec("Total_Labor_Cost", "double"),
         FieldSpec("Total_Parts_Cost", "double"),
+        FieldSpec("Is_Deleted", "boolean"),
     ),
     related_lists={
         "Visits": ("Visits", "Case"),
         "Labor_Costs": ("Labor_Costs", "Case"),
         "Spare_Parts": ("Spare_Parts", "Case"),
         "Case_Actions": ("Case_Actions", "Case"),
+        "Case_Models": ("Case_Models", "Case"),
     },
 )
 
@@ -114,21 +126,29 @@ VISITS = ModuleSpec(
         FieldSpec(
             "Status",
             "picklist",
-            picklist_values=("Scheduled", "En Route", "In Progress", "Completed", "Cancelled", "No Show"),
+            picklist_values=("Visit In Progress", "Visit Submitted"),
         ),
-        FieldSpec("Visit_Type", "picklist", picklist_values=("Diagnostic", "Repair", "Follow Up", "Installation")),
+        FieldSpec(
+            "Visit_Type",
+            "picklist",
+            picklist_values=("Inspection Visit (Diagnosis)", "Repair Visit", "Follow up repair"),
+        ),
         FieldSpec("Technician", "string"),
         FieldSpec("Technician_Id", "string"),
         FieldSpec("Duration_Minutes", "integer"),
         FieldSpec("Arrival_Time", "datetime"),
         FieldSpec("Departure_Time", "datetime"),
         FieldSpec("Customer_Signature", "string"),
+        FieldSpec("Activity_Done", "text"),
+        FieldSpec("Attachments", "text"),
         FieldSpec("Notes", "text"),
+        FieldSpec("Is_Deleted", "boolean"),
     ),
     related_lists={
         "Labor_Costs": ("Labor_Costs", "Visit"),
         "Spare_Parts": ("Spare_Parts", "Visit"),
         "Case_Actions": ("Case_Actions", "Visit"),
+        "Spare_Part_Items": ("Spare_Part_Items", "Visit"),
     },
 )
 
@@ -147,6 +167,7 @@ PRODUCTS = ModuleSpec(
         FieldSpec("Warranty_Months", "integer"),
         FieldSpec("Product_Active", "boolean"),
         FieldSpec("Description", "text"),
+        FieldSpec("Parent_Model", "lookup", lookup_module="Products"),
     ),
 )
 
@@ -175,6 +196,10 @@ LABOR_COSTS = ModuleSpec(
         FieldSpec("Currency", "string"),
         FieldSpec("Billable", "boolean"),
         FieldSpec("Work_Date", "date"),
+        FieldSpec("Status", "picklist", picklist_values=("Pending", "Approved", "Rejected")),
+        FieldSpec("Rejection_Reason", "text"),
+        FieldSpec("Rejection_Date", "date"),
+        FieldSpec("Submitted_At", "datetime"),
         FieldSpec("Notes", "text"),
     ),
 )
@@ -187,18 +212,70 @@ SPARE_PARTS = ModuleSpec(
         FieldSpec("Name", "string", required=True),
         FieldSpec("Case", "lookup", required=True, lookup_module="Cases"),
         FieldSpec("Visit", "lookup", lookup_module="Visits"),
-        FieldSpec("Product", "lookup", lookup_module="Products"),
-        FieldSpec("Part_Code", "string"),
-        FieldSpec("Quantity", "integer"),
-        FieldSpec("Unit_Price", "double"),
-        FieldSpec("Total_Cost", "double"),
-        FieldSpec("Warranty_Covered", "boolean"),
         FieldSpec(
             "Status",
             "picklist",
-            picklist_values=("Requested", "Ordered", "In Transit", "Delivered", "Installed", "Returned"),
+            picklist_values=("Pending", "Approved", "Rejected"),
         ),
+        FieldSpec("Rejection_Reason", "text"),
+        FieldSpec("Rejection_Date", "date"),
+        FieldSpec(
+            "Shipping_Address_Type",
+            "picklist",
+            picklist_values=("service_center", "customer"),
+        ),
+        FieldSpec("Shipping_Address", "text"),
+        FieldSpec("Submitted_At", "datetime"),
         FieldSpec("Notes", "text"),
+    ),
+    related_lists={
+        "Spare_Part_Items": ("Spare_Part_Items", "Spare_Parts"),
+    },
+)
+
+SPARE_PART_ITEMS = ModuleSpec(
+    api_name="Spare_Part_Items",
+    singular="Spare_Part_Item",
+    plural="Spare_Part_Items",
+    fields=(
+        FieldSpec("Name", "string", required=True),
+        FieldSpec("Spare_Parts", "lookup", required=True, lookup_module="Spare_Parts"),
+        FieldSpec("Case", "lookup", lookup_module="Cases"),
+        FieldSpec("Visit", "lookup", lookup_module="Visits"),
+        FieldSpec("Model_Id", "string"),
+        FieldSpec("Model_Name", "string"),
+        FieldSpec("Part_Code", "string"),
+        FieldSpec("Part_Name", "string"),
+        FieldSpec("Quantity", "integer"),
+        FieldSpec("Notes", "text"),
+    ),
+)
+
+CASE_MODELS = ModuleSpec(
+    api_name="Case_Models",
+    singular="Case_Model",
+    plural="Case_Models",
+    fields=(
+        FieldSpec("Name", "string", required=True),
+        FieldSpec("Case", "lookup", required=True, lookup_module="Cases"),
+        FieldSpec("Product", "lookup", lookup_module="Products"),
+        FieldSpec("Serial_Number", "string"),
+        FieldSpec("Failure_Description", "text"),
+        FieldSpec("Error_Code", "string"),
+        FieldSpec("Family", "string"),
+        FieldSpec("Series", "string"),
+    ),
+)
+
+GAS_TYPES = ModuleSpec(
+    api_name="Gas_Types",
+    singular="Gas_Type",
+    plural="Gas_Types",
+    fields=(
+        FieldSpec("Name", "string", required=True),
+        FieldSpec("Code", "string"),
+        FieldSpec("Rate_Per_Kg", "double"),
+        FieldSpec("Unit", "string"),
     ),
 )
 
@@ -573,6 +650,9 @@ MODULES: dict[str, ModuleSpec] = {
         PRODUCTS,
         LABOR_COSTS,
         SPARE_PARTS,
+        SPARE_PART_ITEMS,
+        CASE_MODELS,
+        GAS_TYPES,
         CASE_ACTIONS,
     )
 }

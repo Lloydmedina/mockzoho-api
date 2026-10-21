@@ -2,18 +2,18 @@
 
 def test_search_by_criteria(client, auth_headers):
     response = client.get(
-        "/crm/v3/Cases/search?criteria=(Status:equals:Open)",
+        "/crm/v3/Cases/search?criteria=(Status:equals:Approved)",
         headers=auth_headers,
     )
     assert response.status_code == 200
     records = response.json()["data"]
     assert len(records) == 1
-    assert records[0]["Status"] == "Open"
+    assert records[0]["Status"] == "Approved"
 
 
 def test_search_by_criteria_and(client, auth_headers):
     response = client.get(
-        "/crm/v3/Cases/search?criteria=((Status:equals:Open)and(Priority:equals:Critical))",
+        "/crm/v3/Cases/search?criteria=((Status:equals:Missing information)and(Priority:equals:Critical))",
         headers=auth_headers,
     )
     assert response.status_code == 200
@@ -62,12 +62,12 @@ def test_coql_basic(client, auth_headers):
     response = client.post(
         "/crm/v3/coql",
         headers=auth_headers,
-        json={"select_query": "select Subject, Status from Cases where Status = 'Open' limit 10"},
+        json={"select_query": "select Subject, Status from Cases where Status = 'Approved' limit 10"},
     )
     assert response.status_code == 200
     body = response.json()
     assert body["info"]["count"] == 1
-    assert body["data"][0]["Status"] == "Open"
+    assert body["data"][0]["Status"] == "Approved"
 
 
 def test_coql_with_and(client, auth_headers):
@@ -77,7 +77,7 @@ def test_coql_with_and(client, auth_headers):
         json={
             "select_query": (
                 "select Subject, Priority from Cases "
-                "where (Status = 'Open' and Priority = 'Critical') limit 10"
+                "where (Status = 'Missing information' and Priority = 'Critical') limit 10"
             )
         },
     )
