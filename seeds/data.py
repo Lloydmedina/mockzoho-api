@@ -4,7 +4,8 @@ Each constant is a list of dicts shaped like Zoho record payloads.
 The `id` field is preserved if present; otherwise the repository assigns one.
 """
 
-TECHNICIAN_1_ID = "a535ea97-6848-4d60-8cd1-c69694ddb2df"
+# Matches the user seeded by admin-api's seeder (users table) — the dev login.
+TECHNICIAN_1_ID = "21f3f68b-9c67-498c-b9bb-d25e395ec999"
 TECHNICIAN_2_ID = "b642fb08-7959-5e71-9de2-d70705ecc3e0"
 
 CASES = [
@@ -440,6 +441,8 @@ SPARE_PART_ITEMS = [
         "Visit": {"id": "4876000000400001", "name": "Visit #1 - Diagnostic - Dana Levi"},
         "Model_Id": "4876000000300001",
         "Model_Name": "Tadiran Arctic Pro 18K BTU",
+        "Family": "Residential Split",
+        "Series": "Arctic Series",
         "Part_Code": "CAP-45-450",
         "Part_Name": "Run Capacitor 45uF 450V",
         "Quantity": 1,
@@ -452,6 +455,8 @@ SPARE_PART_ITEMS = [
         "Visit": {"id": "4876000000400004", "name": "Visit #1 - Maintenance - Rachel Ben-David"},
         "Model_Id": "4876000000300001",
         "Model_Name": "Tadiran Arctic Pro 18K BTU",
+        "Family": "Residential Split",
+        "Series": "Arctic Series",
         "Part_Code": "FLT-HEPA-AP",
         "Part_Name": "Air Filter HEPA H13 - Arctic Pro",
         "Quantity": 2,

@@ -107,8 +107,11 @@ class FaultInjectionMiddleware:
             return
 
         started = time.perf_counter()
+        # Faults (latency + error injection) only apply to CRM API calls —
+        # OAuth endpoints, the UI, and static assets stay clean.
+        faultable = path.startswith("/crm/")
 
-        if fault_state.latency_ms:
+        if faultable and fault_state.latency_ms:
             await asyncio.sleep(fault_state.latency_ms / 1000)
 
         body_chunks: list[bytes] = []
@@ -125,7 +128,7 @@ class FaultInjectionMiddleware:
                 status_holder["status"] = message["status"]
             await send(message)
 
-        if fault_state.should_fail(path):
+        if faultable and fault_state.should_fail(path):
             code = fault_state.error_code or "INTERNAL_ERROR"
             status, message = ERROR_CATALOG.get(code, (500, "injected fault"))
             response = JSONResponse(

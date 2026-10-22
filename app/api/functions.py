@@ -85,15 +85,23 @@ async def _read_arguments(request: Request) -> dict[str, Any]:
                         "arguments must be a JSON-encoded map",
                     )
             args.update(inner if isinstance(inner, dict) else body)
-    else:
+    elif request.method in {"POST", "PUT", "PATCH"}:
         form = await request.form()
         inner = form.get("arguments")
         if isinstance(inner, str):
-            args.update(json.loads(inner))
+            try:
+                decoded = json.loads(inner)
+            except (json.JSONDecodeError, ValueError):
+                raise ZohoAPIError(
+                    "INVALID_DATA",
+                    "arguments must be a JSON-encoded map",
+                )
+            args.update(decoded)
         else:
             args.update(dict(form))
     return args
 
+@router.get("/functions/{api_name}/actions/execute")
 @router.post("/functions/{api_name}/actions/execute")
 async def execute_function(api_name: str, request: Request, session: SessionDep):
     _check_auth(request)

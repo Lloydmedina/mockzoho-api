@@ -69,11 +69,23 @@ def _parse_limit_clause(raw: str | None) -> tuple[int, int]:
         return 0, MAX_COQL_LIMIT
 
     parts = [p.strip() for p in raw.split(",") if p.strip()]
-    if len(parts) == 1:
-        return 0, int(parts[0])
-    if len(parts) == 2:
-        return int(parts[0]), int(parts[1])
-    raise ZohoAPIError("INVALID_QUERY", "LIMIT clause must have 1 or 2 values", {"limit_clause": raw})
+    try:
+        numbers = [int(p) for p in parts]
+    except ValueError as exc:
+        raise ZohoAPIError(
+            "INVALID_QUERY", "LIMIT clause must be numeric", {"limit_clause": raw}
+        ) from exc
+    if len(numbers) == 1:
+        offset, limit = 0, numbers[0]
+    elif len(numbers) == 2:
+        offset, limit = numbers
+    else:
+        raise ZohoAPIError("INVALID_QUERY", "LIMIT clause must have 1 or 2 values", {"limit_clause": raw})
+    if offset < 0 or limit < 1:
+        raise ZohoAPIError(
+            "INVALID_QUERY", "LIMIT values must be positive", {"limit_clause": raw}
+        )
+    return offset, limit
 
 
 @router.post(
@@ -81,7 +93,7 @@ def _parse_limit_clause(raw: str | None) -> tuple[int, int]:
     summary="Run a COQL query",
     description=(
         "Supported grammar: `SELECT <fields> FROM <Module> [WHERE <conditions>] "
-        "[GROUP BY <fields>] [ORDER BY <field> asc|desc] [LIMIT ...]`.\n\n"
+        "[ORDER BY <field> asc|desc] [LIMIT ...]` (no `GROUP BY`, like real COQL).\n\n"
         "LIMIT supports two forms: `LIMIT n` (simple) or `LIMIT offset, limit` (Zoho pagination syntax). "
         "Max LIMIT is 200, max 50 fields in SELECT.\n\n"
         "WHERE supports `= != > >= < <= like, not like, in, not in, between, is null, is not null`, "
@@ -132,6 +144,13 @@ def run_coql(
     unknown = [f for f in (fields or []) if f not in known]
     if unknown:
         raise ZohoAPIError("INVALID_QUERY", f"invalid field(s): {', '.join(unknown)}", {"fields": unknown})
+
+    if match.group("group_by"):
+        raise ZohoAPIError(
+            "INVALID_QUERY",
+            "GROUP BY is not supported in COQL",
+            {"select_query": payload.select_query},
+        )
 
     where = match.group("where")
     predicate = parse_coql_where(where) if where else None

@@ -244,6 +244,8 @@ SPARE_PART_ITEMS = ModuleSpec(
         FieldSpec("Visit", "lookup", lookup_module="Visits"),
         FieldSpec("Model_Id", "string"),
         FieldSpec("Model_Name", "string"),
+        FieldSpec("Family", "string"),
+        FieldSpec("Series", "string"),
         FieldSpec("Part_Code", "string"),
         FieldSpec("Part_Name", "string"),
         FieldSpec("Quantity", "integer"),

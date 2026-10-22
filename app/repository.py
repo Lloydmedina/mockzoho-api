@@ -5,6 +5,7 @@ happen in Python because the payloads are JSON and the dataset is mock-sized.
 """
 
 from collections.abc import Callable
+from datetime import datetime, timezone
 from typing import Any
 
 from sqlalchemy import delete as sa_delete
@@ -12,6 +13,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models import Record
+from app.schemas.zoho import ZohoAPIError
 from app.utils import new_record_id, now_iso
 
 Predicate = Callable[[dict[str, Any]], bool]
@@ -39,17 +41,29 @@ def make_resolver(session: Session) -> Callable[[str, str], dict[str, Any] | Non
     return resolver
 
 
-def _sort_key(payload: dict[str, Any], field: str) -> tuple[int, str]:
+def _sort_key(payload: dict[str, Any], field: str) -> tuple[int, float, str]:
     value = payload.get(field)
     if value is None:
-        return (1, "")
+        return (1, 0.0, "")
     if isinstance(value, dict):
         value = value.get("name") or value.get("id") or ""
     if isinstance(value, bool):
-        return (0, str(int(value)))
+        return (0, float(int(value)), "")
     if isinstance(value, (int, float)):
-        return (0, f"{value:0>30.6f}")
-    return (0, str(value).lower())
+        return (0, float(value), "")
+    return (0, 0.0, str(value).lower())
+
+
+def _parse_iso8601(value: str | None) -> datetime | None:
+    if not value:
+        return None
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except (ValueError, AttributeError):
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed
 
 
 def query(
@@ -64,7 +78,19 @@ def query(
     payloads = [record.to_zoho() for record in all_records(session, module)]
 
     if modified_since:
-        payloads = [p for p in payloads if p.get("Modified_Time", "") > modified_since]
+        since = _parse_iso8601(modified_since)
+        if since is None:
+            raise ZohoAPIError(
+                "INVALID_DATA",
+                "If-Modified-Since header is not a valid ISO 8601 timestamp",
+                {"header": "If-Modified-Since", "given": modified_since},
+            )
+        payloads = [
+            p
+            for p in payloads
+            if (_parse_iso8601(p.get("Modified_Time")) or datetime.min.replace(tzinfo=timezone.utc))
+            > since
+        ]
     if predicate is not None:
         payloads = [p for p in payloads if predicate(p)]
 

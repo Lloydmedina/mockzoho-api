@@ -7,7 +7,7 @@ from app.auth.dependency import require_token
 from app.auth.tokens import token_store
 from app.config import settings
 from app.db import get_session
-from app.modules.registry import MODULE_NAMES, ModuleSpec, resolve_module
+from app.modules.registry import MODULE_NAMES, SYSTEM_FIELDS, ModuleSpec, resolve_module
 from app.schemas.zoho import ZohoAPIError
 
 MODULE_DOC = f"Zoho module API name. Available in this mock: {', '.join(MODULE_NAMES)}"
@@ -66,7 +66,30 @@ def pagination(
     return page, resolved
 
 
+MAX_FIELDS_PARAM = 50
+
+
+def _check_fields(module: ModuleSpec, parsed: list[str]) -> list[str]:
+    """Validate field API names against the module, like the real API does."""
+    if len(parsed) > MAX_FIELDS_PARAM:
+        raise ZohoAPIError(
+            "INVALID_DATA",
+            f"maximum of {MAX_FIELDS_PARAM} field api names can be given",
+            {"given": len(parsed)},
+        )
+    known = set(module.field_map()) | set(SYSTEM_FIELDS)
+    unknown = [name for name in parsed if name not in known]
+    if unknown:
+        raise ZohoAPIError(
+            "INVALID_DATA",
+            "the field is not available in the module",
+            {"api_name": unknown[0]},
+        )
+    return parsed
+
+
 def field_list(
+    module: Annotated[ModuleSpec, Depends(module_spec)],
     fields: Annotated[
         str | None,
         Query(description="Comma separated field API names to project", examples=["Subject,Status,Priority"]),
@@ -77,10 +100,11 @@ def field_list(
     parsed = [part.strip() for part in fields.split(",") if part.strip()]
     if "*" in parsed:
         return None
-    return parsed or None
+    return _check_fields(module, parsed) if parsed else None
 
 
 def required_field_list(
+    module: Annotated[ModuleSpec, Depends(module_spec)],
     fields: Annotated[
         str | None,
         Query(description="Comma separated field API names (mandatory when listing records)", examples=["Subject,Status,Priority"]),
@@ -101,7 +125,7 @@ def required_field_list(
         )
     if "*" in parsed:
         return []
-    return parsed
+    return _check_fields(module, parsed)
 
 
 def modified_since(
@@ -124,7 +148,10 @@ ModifiedSinceDep = Annotated[str | None, Depends(modified_since)]
 def parse_id_list(raw: str | None) -> list[str]:
     if not raw:
         return []
-    return [part.strip() for part in raw.split(",") if part.strip()]
+    ids = [part.strip() for part in raw.split(",") if part.strip()]
+    for record_id in ids:
+        validate_record_id(record_id)
+    return ids
 
 
 def validate_record_id(record_id: str) -> str:

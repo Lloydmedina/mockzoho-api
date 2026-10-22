@@ -1,5 +1,7 @@
 """Zoho CRM record CRUD: list, get, insert, update, upsert, delete."""
 
+import re
+import threading
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Body, Depends, Path, Query, Response
@@ -94,10 +96,28 @@ UPDATE_EXAMPLES = {
 }
 
 
+_COUNTER_LOCK = threading.Lock()
+_CASE_NUMBER_COUNTER: dict[str, int] = {}
+
+
+def _next_case_number(session: Session) -> str:
+    """Monotonic auto-number: seeded from the highest trailing digits in existing
+    Case_Number values, then incremented in-process so deletes can't reuse one."""
+    with _COUNTER_LOCK:
+        if "next" not in _CASE_NUMBER_COUNTER:
+            highest = 0
+            for payload in query(session, "Cases"):
+                match = re.search(r"(\d+)\s*$", str(payload.get("Case_Number") or ""))
+                if match:
+                    highest = max(highest, int(match.group(1)))
+            _CASE_NUMBER_COUNTER["next"] = highest
+        _CASE_NUMBER_COUNTER["next"] += 1
+        return f"CASE-{_CASE_NUMBER_COUNTER['next']:05d}"
+
+
 def _auto_fields(module: ModuleSpec, data: dict[str, Any], session: Session) -> dict[str, Any]:
     if module.api_name == "Cases" and not data.get("Case_Number"):
-        existing = len(query(session, "Cases")) + 1
-        data["Case_Number"] = f"CASE-{existing:05d}"
+        data["Case_Number"] = _next_case_number(session)
     return data
 
 
@@ -139,7 +159,7 @@ def list_records(
     pagination: PaginationDep,
     fields: RequiredFieldsDep,
     if_modified_since: ModifiedSinceDep,
-    sort_by: Annotated[str, Query(description="Field API name to sort on (mock extension, not in real Zoho)", example="Modified_Time")] = "Modified_Time",
+    sort_by: Annotated[str, Query(description="Field API name to sort on", example="Modified_Time")] = "Modified_Time",
     sort_order: Annotated[str, Query(description="Sort order: asc or desc", example="desc")] = "desc",
     ids: Annotated[str | None, Query(description="Comma separated record ids to filter on", example="4876000000200001,4876000000200002")] = None,
 ) -> Response:
@@ -220,7 +240,7 @@ def insert_records(
             results.append(exc.to_result())
             continue
         clean = _auto_fields(module, clean, session)
-        record = create(session, module.api_name, clean, record_id=item.get("id"))
+        record = create(session, module.api_name, clean)
         results.append(
             success_result(record.id, record.created_time, record.modified_time, "record added")
         )
@@ -248,6 +268,15 @@ def update_records(
         if not record_id:
             results.append(
                 error_result("MANDATORY_NOT_FOUND", "required field not found", {"api_name": "id"})
+            )
+            continue
+        if not str(record_id).isdigit():
+            results.append(
+                error_result(
+                    "UNABLE_TO_PARSE_DATA_TYPE",
+                    "either the request body or parameters is in wrong format",
+                    {"api_name": "id"},
+                )
             )
             continue
         record = get(session, module.api_name, str(record_id))
@@ -279,6 +308,13 @@ def update_record(
 ) -> JSONResponse:
     validate_record_id(record_id)
     _guard_batch_size(payload.data)
+    body_id = payload.data[0].get("id")
+    if body_id is not None and str(body_id) != record_id:
+        raise ZohoAPIError(
+            "INVALID_DATA",
+            "the record id in the URL does not match the id in the request body",
+            {"id": body_id},
+        )
     record = get(session, module.api_name, record_id)
     if record is None:
         raise ZohoAPIError("RESOURCE_NOT_FOUND", "the record does not exist", {"id": record_id})

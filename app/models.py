@@ -3,6 +3,8 @@ from typing import Any
 from sqlalchemy import JSON, String
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
+from app.utils import audit_stamp
+
 
 class Base(DeclarativeBase):
     pass
@@ -22,4 +24,13 @@ class Record(Base):
         payload["id"] = self.id
         payload["Created_Time"] = self.created_time
         payload["Modified_Time"] = self.modified_time
+        payload["Created_By"] = audit_stamp()
+        payload["Modified_By"] = audit_stamp()
+        payload["Owner"] = audit_stamp()
+        payload["$approval"] = {
+            "delegate": False,
+            "approve": False,
+            "reject": False,
+            "resubmit": False,
+        }
         return payload

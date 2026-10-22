@@ -118,17 +118,30 @@ def _combine(parts: list[Predicate], operators: list[str]) -> Predicate:
     return predicate
 
 
-def _split_top_level(expr: str) -> tuple[list[str], list[str]]:
-    """Split on top-level and/or, returning (segments, operators)."""
+def _split_top_level(expr: str, paren_operators: bool = False) -> tuple[list[str], list[str]]:
+    """Split on top-level and/or, returning (segments, operators).
+
+    Quoted sections are never split. When `paren_operators` is set (Zoho criteria
+    syntax, where compound expressions are always `(...)and(...)`), an operator is
+    only recognized when followed by `(`, so `and`/`or` inside leaf values survive.
+    """
     segments: list[str] = []
     operators: list[str] = []
     depth = 0
     current = ""
     index = 0
+    quote: str | None = None
 
     while index < len(expr):
         char = expr[index]
-        if char == "(":
+        if quote:
+            current += char
+            if char == quote:
+                quote = None
+        elif char in ("'", '"'):
+            quote = char
+            current += char
+        elif char == "(":
             depth += 1
             current += char
         elif char == ")":
@@ -137,30 +150,29 @@ def _split_top_level(expr: str) -> tuple[list[str], list[str]]:
         elif depth == 0:
             lowered = expr[index:].lower()
             prev_char = expr[index - 1] if index > 0 else ""
-            next_char = expr[index + 3] if index + 3 < len(expr) else ""
-            if (
-                lowered.startswith("and")
-                and not current.strip().endswith(":")
-                and prev_char in (")", " ")
-                and next_char in ("(", " ")
-            ):
+            matched: str | None = None
+            for keyword in ("and", "or"):
+                if not lowered.startswith(keyword):
+                    continue
+                end = index + len(keyword)
+                next_char = expr[end] if end < len(expr) else ""
+                if (
+                    prev_char not in (")", " ")
+                    or current.strip().endswith(":")
+                    or (not paren_operators and next_char not in ("(", " "))
+                    or (paren_operators and not expr[end:].lstrip().startswith("("))
+                ):
+                    continue
+                matched = keyword
+                break
+            if matched is None:
+                current += char
+            else:
                 segments.append(current)
-                operators.append("and")
+                operators.append(matched)
                 current = ""
-                index += 3
+                index += len(matched)
                 continue
-            next_char_or = expr[index + 2] if index + 2 < len(expr) else ""
-            if (
-                lowered.startswith("or")
-                and prev_char in (")", " ")
-                and next_char_or in ("(", " ")
-            ):
-                segments.append(current)
-                operators.append("or")
-                current = ""
-                index += 2
-                continue
-            current += char
         else:
             current += char
         index += 1
@@ -194,13 +206,13 @@ def parse_criteria(criteria: str) -> Predicate:
     if not expr:
         raise ZohoAPIError("INVALID_QUERY_PARAM", "criteria is empty", {"parameter": "criteria"})
 
-    segments, operators = _split_top_level(expr)
+    segments, operators = _split_top_level(expr, paren_operators=True)
     if len(segments) > 1:
         return _combine([parse_criteria(segment) for segment in segments], operators)
 
     inner = _strip_wrapping_parens(segments[0])
     if inner != segments[0]:
-        nested_segments, nested_ops = _split_top_level(inner)
+        nested_segments, nested_ops = _split_top_level(inner, paren_operators=True)
         if len(nested_segments) > 1:
             return _combine([parse_criteria(s) for s in nested_segments], nested_ops)
 

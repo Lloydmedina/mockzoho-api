@@ -17,4 +17,4 @@ COPY --from=ui-build /app/static/ui /app/app/static/ui
 
 EXPOSE 8090
 
-CMD ["sh", "-c", "pytest -v tests/ && uvicorn app.main:app --host 0.0.0.0 --port 8090"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8090"]

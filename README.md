@@ -15,3 +15,8 @@ curl -s -X POST http://localhost:8090/oauth/v2/token -d grant_type=refresh_token
 ```
 
 In Swagger UI (`/docs`), click **Authorize** and paste `Zoho-oauthtoken <access_token>`.
+
+## Notes
+
+- Tokens, rate-limit credits, fault state, and the request log live **in memory** — run a single uvicorn worker, and expect tokens to die on restart (issue a fresh one).
+- Records persist in `mockzoho.db` (SQLite). `POST /__mock__/reset` restores seed state.

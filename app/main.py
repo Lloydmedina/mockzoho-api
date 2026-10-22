@@ -4,6 +4,8 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, Request
+from fastapi.encoders import jsonable_encoder
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException
@@ -212,7 +214,46 @@ async def http_exception_handler(request: Request, exc: HTTPException) -> JSONRe
                 {},
             ),
         )
+    if exc.status_code == 404 and request.url.path.startswith("/crm/"):
+        return JSONResponse(
+            status_code=404,
+            content=error_body(
+                "INVALID_URL_PATTERN",
+                "Please check if the URL trying to access is a correct one",
+                {},
+            ),
+        )
     return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
+
+
+@app.exception_handler(RequestValidationError)
+async def request_validation_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
+    if not request.url.path.startswith("/crm/"):
+        return JSONResponse(status_code=422, content={"detail": jsonable_encoder(exc.errors())})
+    loc = exc.errors()[0].get("loc", ()) if exc.errors() else ()
+    if "query" in loc or "path" in loc:
+        return JSONResponse(
+            status_code=400,
+            content=error_body(
+                "INVALID_QUERY_PARAM",
+                "one of the expected parameter is missing or invalid",
+                {"parameter": str(loc[-1]) if loc else ""},
+            ),
+        )
+    return JSONResponse(
+        status_code=400,
+        content=error_body("INVALID_DATA", "invalid data", {}),
+    )
+
+
+@app.exception_handler(Exception)
+async def unhandled_error_handler(request: Request, exc: Exception) -> JSONResponse:
+    if request.url.path.startswith("/crm/"):
+        return JSONResponse(
+            status_code=500,
+            content=error_body("INTERNAL_ERROR", "internal server error", {}),
+        )
+    return JSONResponse(status_code=500, content={"detail": "Internal Server Error"})
 
 
 @app.get("/health", tags=["Health"], summary="Health check")
