@@ -70,8 +70,8 @@ auth, validation, faults, and rate limits all apply.
 Set these env vars in `tadiran-force-app-api`:
 
 ```
-ZOHO_BASE_URL=http://localhost:8090/crm/v3
-ZOHO_ACCOUNTS_URL=http://localhost:8090
+ZOHO_BASE_URL=http://localhost:8091/crm/v3
+ZOHO_ACCOUNTS_URL=http://localhost:8091
 ```
 
 ### Error codes
