@@ -47,7 +47,7 @@ curl -s -X POST http://localhost:8091/oauth/v2/token \
 
 In Swagger UI (`/docs`), click **Authorize** and paste `Zoho-oauthtoken <access_token>`.
 
-## Connecting app-api (tadiran)
+## Connecting app-api (usage setup)
 
 Set these in `app-api/.env`:
 
