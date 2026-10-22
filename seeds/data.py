@@ -487,6 +487,68 @@ GAS_TYPES = [
     },
 ]
 
+VISIT_TYPES = [
+    {
+        "id": "4876000000920001",
+        "Name": "Inspection Visit (Diagnosis)",
+        "Code": "inspection_diagnosis",
+        "Sort_Order": 1,
+        "Is_Active": True,
+    },
+    {
+        "id": "4876000000920002",
+        "Name": "Repair Visit",
+        "Code": "repair_visit",
+        "Sort_Order": 2,
+        "Is_Active": True,
+    },
+    {
+        "id": "4876000000920003",
+        "Name": "Follow up repair",
+        "Code": "follow_up_repair",
+        "Sort_Order": 3,
+        "Is_Active": True,
+    },
+]
+
+CASE_STATUSES = [
+    {
+        "id": "4876000000930001",
+        "Name": "Submitted for warranty review",
+        "Code": "submitted_for_warranty_review",
+        "Sort_Order": 1,
+        "Is_Active": True,
+    },
+    {
+        "id": "4876000000930002",
+        "Name": "Missing information",
+        "Code": "missing_information",
+        "Sort_Order": 2,
+        "Is_Active": True,
+    },
+    {
+        "id": "4876000000930003",
+        "Name": "Approved",
+        "Code": "approved",
+        "Sort_Order": 3,
+        "Is_Active": True,
+    },
+    {
+        "id": "4876000000930004",
+        "Name": "Rejected",
+        "Code": "rejected",
+        "Sort_Order": 4,
+        "Is_Active": True,
+    },
+    {
+        "id": "4876000000930005",
+        "Name": "Closed",
+        "Code": "closed",
+        "Sort_Order": 5,
+        "Is_Active": True,
+    },
+]
+
 CASE_ACTIONS = [
     {
         "id": "4876000000700001",
@@ -1190,5 +1252,7 @@ SEED_MAP = {
     "Spare_Part_Items": SPARE_PART_ITEMS,
     "Case_Models": CASE_MODELS,
     "Gas_Types": GAS_TYPES,
+    "Visit_Types": VISIT_TYPES,
+    "Case_Statuses": CASE_STATUSES,
     "Case_Actions": CASE_ACTIONS,
 }

@@ -281,6 +281,30 @@ GAS_TYPES = ModuleSpec(
     ),
 )
 
+VISIT_TYPES = ModuleSpec(
+    api_name="Visit_Types",
+    singular="Visit_Type",
+    plural="Visit_Types",
+    fields=(
+        FieldSpec("Name", "string", required=True),
+        FieldSpec("Code", "string"),
+        FieldSpec("Sort_Order", "integer"),
+        FieldSpec("Is_Active", "boolean"),
+    ),
+)
+
+CASE_STATUSES = ModuleSpec(
+    api_name="Case_Statuses",
+    singular="Case_Status",
+    plural="Case_Statuses",
+    fields=(
+        FieldSpec("Name", "string", required=True),
+        FieldSpec("Code", "string"),
+        FieldSpec("Sort_Order", "integer"),
+        FieldSpec("Is_Active", "boolean"),
+    ),
+)
+
 CASE_ACTIONS = ModuleSpec(
     api_name="Case_Actions",
     singular="Case_Action",
@@ -655,6 +679,8 @@ MODULES: dict[str, ModuleSpec] = {
         SPARE_PART_ITEMS,
         CASE_MODELS,
         GAS_TYPES,
+        VISIT_TYPES,
+        CASE_STATUSES,
         CASE_ACTIONS,
     )
 }

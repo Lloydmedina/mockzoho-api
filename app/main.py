@@ -48,7 +48,8 @@ A high-fidelity mock of the **Zoho CRM v3 REST API** for local development and t
 
 ### Available modules
 
-`Cases`, `Visits`, `Products`, `Labor_Costs`, `Spare_Parts`, `Case_Actions`
+`Cases`, `Visits`, `Case_Models`, `Products`, `Labor_Costs`, `Spare_Parts`,
+`Spare_Part_Items`, `Gas_Types`, `Visit_Types`, `Case_Statuses`, `Case_Actions`
 
 ### Composite API
 
