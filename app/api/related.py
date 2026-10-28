@@ -2,11 +2,12 @@
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Path, Response
+from fastapi import APIRouter, Depends, Path, Query, Response
 from fastapi.responses import JSONResponse
 
-from app.api.deps import FieldsDep, ModuleDep, PaginationDep, SessionDep, validate_record_id
+from app.api.deps import ModuleDep, PaginationDep, SessionDep, _check_fields, validate_record_id
 from app.auth.dependency import require_token
+from app.modules.registry import resolve_module
 from app.repository import get, paginate, project, query
 from app.schemas.zoho import ZohoAPIError, record_list_body
 
@@ -28,7 +29,10 @@ def get_related_records(
     related_list: Annotated[str, Path(description="Related list name (e.g. Visits, Labor_Costs, Spare_Parts, Case_Actions)", example="Visits")],
     session: SessionDep,
     pagination: PaginationDep,
-    fields: FieldsDep,
+    fields: Annotated[
+        str | None,
+        Query(description="Comma separated field API names to project", examples=["Name,Status,Visit_Date"]),
+    ] = None,
 ) -> Response:
     validate_record_id(record_id)
     parent = get(session, module.api_name, record_id)
@@ -48,6 +52,17 @@ def get_related_records(
         )
 
     target_module, lookup_field = related_spec
+
+    parsed_fields: list[str] | None = None
+    if fields:
+        parsed_fields = [part.strip() for part in fields.split(",") if part.strip()]
+        if "*" in parsed_fields:
+            parsed_fields = None
+        elif parsed_fields:
+            target_spec = resolve_module(target_module)
+            if target_spec is not None:
+                parsed_fields = _check_fields(target_spec, parsed_fields)
+
     page, per_page = pagination
 
     payloads = query(
@@ -62,7 +77,7 @@ def get_related_records(
 
     return JSONResponse(
         status_code=200,
-        content=record_list_body(project(window, fields), page, per_page, more_records),
+        content=record_list_body(project(window, parsed_fields), page, per_page, more_records),
     )
 
 
